@@ -41,6 +41,10 @@ public partial class MainWindowViewModel : ObservableObject
         FfmpegService ffmpegService,
         LogService logService)
     {
+
+        var version = VersionService.AppVersion;
+        logService.Add(LogCategory.Info, $"Initializing vid2tiny v{version.Major}.{version.Minor}.{version.Build}");
+
         _settingsService = settingsService;
         _settings = settings;
         _mediaProbeService = mediaProbeService;
