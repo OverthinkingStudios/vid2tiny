@@ -1,0 +1,71 @@
+<UserControl x:Class="Vid2Tiny.Views.SourceGalleryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="360"
+             d:DesignWidth="280">
+    <Border Margin="8"
+            Padding="8"
+            BorderBrush="#505050"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock FontWeight="Bold" Text="Source Gallery" />
+            <Grid Grid.Row="1" Margin="0,8,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         Margin="0,0,6,0"
+                         Text="{Binding NewSourceFolder, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="1"
+                        Padding="10,4"
+                        Content="Add"
+                        Command="{Binding AddFolderCommand}" />
+            </Grid>
+
+            <Grid Grid.Row="2"
+                  Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ListBox x:Name="FoldersList"
+                         Grid.Column="0"
+                         MinHeight="60"
+                         ItemsSource="{Binding SourceFolders}" />
+                <Button Grid.Column="1"
+                        Margin="6,0,6,0"
+                        Padding="10,4"
+                        Content="Remove"
+                        Command="{Binding RemoveFolderCommand}"
+                        CommandParameter="{Binding SelectedItem, ElementName=FoldersList}" />
+                <Button Grid.Column="2"
+                        Padding="10,4"
+                        Content="Refresh"
+                        Command="{Binding RefreshCommand}" />
+            </Grid>
+
+            <ListView Grid.Row="3"
+                      ItemsSource="{Binding Items}"
+                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Width="150" Header="File" DisplayMemberBinding="{Binding DisplayName}" />
+                        <GridViewColumn Width="100" Header="Modified" DisplayMemberBinding="{Binding LastWriteTimeUtc}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Grid>
+    </Border>
+</UserControl>

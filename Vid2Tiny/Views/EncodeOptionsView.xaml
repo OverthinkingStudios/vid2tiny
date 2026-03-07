@@ -1,0 +1,47 @@
+<UserControl x:Class="Vid2Tiny.Views.EncodeOptionsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="300"
+             d:DesignWidth="260">
+    <Border Margin="8"
+            Padding="8"
+            BorderBrush="#505050"
+            BorderThickness="1">
+        <StackPanel>
+            <TextBlock FontWeight="Bold" Text="FFmpeg Options" />
+            <TextBlock Margin="0,8,0,2" Text="Preset" />
+            <ComboBox ItemsSource="{Binding Presets}"
+                      SelectedItem="{Binding SelectedPreset}"
+                      DisplayMemberPath="Name" />
+            <TextBlock Margin="0,2,0,8"
+                       Foreground="#707070"
+                       Text="{Binding SelectedPreset.Description}" />
+
+            <CheckBox Margin="0,0,0,8"
+                      Content="Mute Audio"
+                      IsChecked="{Binding MuteAudio}" />
+
+            <TextBlock Text="CRF (lower = better quality)" />
+            <Slider Minimum="16"
+                    Maximum="36"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True"
+                    Value="{Binding Crf, Mode=TwoWay}" />
+            <TextBlock Margin="0,0,0,8"
+                       Text="{Binding Crf, StringFormat=CRF: {0}}" />
+
+            <TextBlock Text="Encoder Preset (x264)" />
+            <TextBox Margin="0,0,0,8"
+                     Text="{Binding EncoderPreset, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Text="Scale Width (blank keeps original/aspect)" />
+            <TextBox Margin="0,0,0,8"
+                     Text="{Binding ScaleWidth, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="Scale Height (blank keeps original/aspect)" />
+            <TextBox Text="{Binding ScaleHeight, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+    </Border>
+</UserControl>

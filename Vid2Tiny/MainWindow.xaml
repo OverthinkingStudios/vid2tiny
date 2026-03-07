@@ -1,0 +1,85 @@
+<Window x:Class="Vid2Tiny.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Vid2Tiny" Closing="Window_Closing"
+        Width="1450"
+        Height="920"
+        MinWidth="1200"
+        MinHeight="760">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="220" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="420" />
+            </Grid.ColumnDefinitions>
+
+            <ContentControl Grid.Column="0"
+                            Content="{Binding Preview}" />
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ContentControl Grid.Row="0"
+                                Content="{Binding EncodeOptions}" />
+
+                <TabControl Grid.Row="1"
+                            Margin="8">
+                    <TabItem Header="Source Videos">
+                        <ContentControl Content="{Binding SourceGallery}" />
+                    </TabItem>
+                    <TabItem Header="Output Videos">
+                        <ContentControl Content="{Binding OutputGallery}" />
+                    </TabItem>
+                </TabControl>
+
+                <Border Grid.Row="2"
+                        Margin="8"
+                        Padding="8"
+                        BorderBrush="#505050"
+                        BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock FontWeight="Bold" Text="Export" />
+                        <TextBlock Margin="0,8,0,2" Text="Output Folder" />
+                        <TextBox Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" />
+                        <StackPanel Margin="0,8,0,8" Orientation="Horizontal">
+                            <Button Padding="10,4"
+                                    Content="Refresh Output"
+                                    Command="{Binding RefreshOutputCommand}" />
+                        </StackPanel>
+                        <TextBlock Text="Output File Name" />
+                        <TextBox Margin="0,2,0,8"
+                                 Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Padding="14,6"
+                                FontWeight="Bold"
+                                Content="Convert Clip"
+                                Command="{Binding ConvertCommand}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="#888888"
+                                   Text="{Binding IsBusy, StringFormat=Busy: {0}}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <GridSplitter Grid.Row="1"
+                      HorizontalAlignment="Stretch"
+                      Height="5"
+                      Background="#404040"
+                      ResizeBehavior="PreviousAndNext"
+                      ResizeDirection="Rows" />
+        <ContentControl Grid.Row="2"
+                        Content="{Binding Log}" />
+    </Grid>
+</Window>

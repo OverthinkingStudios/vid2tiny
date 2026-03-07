@@ -1,0 +1,23 @@
+<Application x:Class="Vid2Tiny.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:Vid2Tiny.ViewModels"
+             xmlns:views="clr-namespace:Vid2Tiny.Views">
+    <Application.Resources>
+        <DataTemplate DataType="{x:Type viewModels:PreviewViewModel}">
+            <views:PreviewView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:EncodeOptionsViewModel}">
+            <views:EncodeOptionsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:SourceGalleryViewModel}">
+            <views:SourceGalleryView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:OutputGalleryViewModel}">
+            <views:OutputGalleryView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:LogViewModel}">
+            <views:LogPaneView />
+        </DataTemplate>
+    </Application.Resources>
+</Application>
