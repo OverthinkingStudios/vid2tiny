@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.IO;
@@ -6,7 +7,7 @@ using Vid2Tiny.Services;
 
 namespace Vid2Tiny.ViewModels;
 
-public partial class MainWindowViewModel : ObservableObject
+public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private readonly SettingsService _settingsService;
     private readonly AppSettings _settings;
@@ -79,7 +80,6 @@ public partial class MainWindowViewModel : ObservableObject
             : _settings.OutputFolder;
 
         OutputGallery.OutputFolder = OutputFolder;
-        await SourceGallery.RefreshCommand.ExecuteAsync(null);
         await OutputGallery.RefreshCommand.ExecuteAsync(null);
 
         var preset = EncodeOptions.Presets.FirstOrDefault(x => x.Id == _settings.LastPresetId);
@@ -180,10 +180,34 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task RefreshOutputAsync()
+    private void OpenOutputFolder()
     {
-        OutputGallery.OutputFolder = OutputFolder;
-        await OutputGallery.RefreshCommand.ExecuteAsync(null);
+        var path = OutputFolder?.Trim();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            _logService.Add(LogCategory.Warning, "Output folder is empty.");
+            return;
+        }
+
+        try
+        {
+            path = Path.GetFullPath(path);
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = path,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logService.Add(LogCategory.Error, $"Could not open folder: {ex.Message}");
+        }
     }
 
     partial void OnOutputFolderChanged(string value)
@@ -279,5 +303,12 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         return fileName;
+    }
+
+    public void Dispose()
+    {
+        SourceGallery.Dispose();
+        OutputGallery.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

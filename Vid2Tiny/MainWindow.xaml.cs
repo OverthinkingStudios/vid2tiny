@@ -16,8 +16,9 @@ namespace Vid2Tiny
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if(DataContext is MainWindowViewModel vm)
+            if (DataContext is MainWindowViewModel vm)
             {
+                vm.Dispose();
                 vm.PersistSettings();
             }
         }

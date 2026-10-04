@@ -5,80 +5,120 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Vid2Tiny" Closing="Window_Closing"
-        Width="1450"
-        Height="920"
+        Width="1920"
+        Height="1000"
         MinWidth="1200"
         MinHeight="760">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="220" />
+            <RowDefinition Height="120" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="200" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
+                <!-- Video preview, encode options, export -->
+                <ColumnDefinition Width="3*" />
+                <!-- Splitter -->
+                <ColumnDefinition Width="Auto" />
+                <!-- Source gallery, output gallery -->
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="420" />
             </Grid.ColumnDefinitions>
 
-            <ContentControl Grid.Column="0"
-                            Content="{Binding Preview}" />
+            <ContentControl Grid.Row="0" Grid.Column="0" Content="{Binding Preview}" />
 
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <ContentControl Grid.Row="0"
+            <Grid Grid.Row="2"  Grid.Column="0" Margin="8,0,8,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ContentControl Grid.Column="0"
+                                VerticalAlignment="Stretch"
                                 Content="{Binding EncodeOptions}" />
 
-                <TabControl Grid.Row="1"
-                            Margin="8">
-                    <TabItem Header="Source Videos">
-                        <ContentControl Content="{Binding SourceGallery}" />
-                    </TabItem>
-                    <TabItem Header="Output Videos">
-                        <ContentControl Content="{Binding OutputGallery}" />
-                    </TabItem>
-                </TabControl>
-
-                <Border Grid.Row="2"
-                        Margin="8"
+                <Border Grid.Column="1"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Stretch"
                         Padding="8"
                         BorderBrush="#505050"
                         BorderThickness="1">
                     <StackPanel>
                         <TextBlock FontWeight="Bold" Text="Export" />
-                        <TextBlock Margin="0,8,0,2" Text="Output Folder" />
-                        <TextBox Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" />
-                        <StackPanel Margin="0,8,0,8" Orientation="Horizontal">
-                            <Button Padding="10,4"
-                                    Content="Refresh Output"
-                                    Command="{Binding RefreshOutputCommand}" />
-                        </StackPanel>
-                        <TextBlock Text="Output File Name" />
-                        <TextBox Margin="0,2,0,8"
-                                 Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Padding="14,6"
-                                FontWeight="Bold"
-                                Content="Convert Clip"
-                                Command="{Binding ConvertCommand}" />
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Margin="0,0,8,0"
+                                       VerticalAlignment="Center"
+                                       Text="Output Folder" />
+                            <TextBox Grid.Column="1"
+                                     Margin="0,0,8,0"
+                                     Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Padding="10,4"
+                                        Content="Open folder"
+                                        Command="{Binding OpenOutputFolderCommand}" />
+                                <Button Margin="8,0,0,0"
+                                        Padding="14,6"
+                                        FontWeight="Bold"
+                                        Content="Convert Clip"
+                                        Command="{Binding ConvertCommand}" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Margin="0,0,8,0"
+                                       VerticalAlignment="Center"
+                                       Text="Output File Name" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" />
+                        </Grid>
                         <TextBlock Margin="0,8,0,0"
                                    Foreground="#888888"
                                    Text="{Binding IsBusy, StringFormat=Busy: {0}}" />
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <TabControl Grid.Row="0" Grid.Column="2"
+                        Margin="8,0,8,8">
+                <TabItem Header="Source Videos">
+                    <ContentControl Content="{Binding SourceGallery}" />
+                </TabItem>
+                <TabItem Header="Output Videos">
+                    <ContentControl Content="{Binding OutputGallery}" />
+                </TabItem>
+            </TabControl>
+
+            <GridSplitter Grid.Column="1" Grid.RowSpan="99"
+                      VerticalAlignment="Stretch"
+                      Width="5"
+                      Background="#404040"
+                      ResizeBehavior="PreviousAndNext" 
+                      ResizeDirection="Columns" />
         </Grid>
 
-        <GridSplitter Grid.Row="1"
+        <GridSplitter Grid.Row="1" Grid.ColumnSpan="99"
                       HorizontalAlignment="Stretch"
                       Height="5"
                       Background="#404040"
                       ResizeBehavior="PreviousAndNext"
                       ResizeDirection="Rows" />
+
+
+
+
         <ContentControl Grid.Row="2"
                         Content="{Binding Log}" />
     </Grid>

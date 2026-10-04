@@ -6,33 +6,40 @@
              mc:Ignorable="d"
              d:DesignHeight="300"
              d:DesignWidth="260">
-    <Border Margin="8"
+    <Border Margin="0"
             Padding="8"
             BorderBrush="#505050"
             BorderThickness="1">
-        <StackPanel>
-            <TextBlock FontWeight="Bold" Text="FFmpeg Options" />
-            <TextBlock Margin="0,8,0,2" Text="Preset" />
-            <ComboBox ItemsSource="{Binding Presets}"
-                      SelectedItem="{Binding SelectedPreset}"
-                      DisplayMemberPath="Name" />
-            <TextBlock Margin="0,2,0,8"
-                       Foreground="#707070"
-                       Text="{Binding SelectedPreset.Description}" />
+        <StackPanel Orientation="Vertical">
+            <TextBlock FontWeight="Bold" Text="FFmpeg Options" Margin="3" />
+            <StackPanel Orientation="Horizontal">
+            <StackPanel Margin="3">
+                
+                <TextBlock Margin="3" Text="Preset" />
+                <ComboBox ItemsSource="{Binding Presets}"
+                        SelectedItem="{Binding SelectedPreset}"
+                        DisplayMemberPath="Name" />
+                <TextBlock Margin="3"
+                        Foreground="#707070"
+                        Text="{Binding SelectedPreset.Description}" />
 
-            <CheckBox Margin="0,0,0,8"
-                      Content="Mute Audio"
-                      IsChecked="{Binding MuteAudio}" />
+                <CheckBox Margin="3"
+                        Content="Mute Audio"
+                        IsChecked="{Binding MuteAudio}" />
+            </StackPanel>
+            <StackPanel Margin="3">
 
-            <TextBlock Text="CRF (lower = better quality)" />
-            <Slider Minimum="16"
-                    Maximum="36"
-                    TickFrequency="1"
-                    IsSnapToTickEnabled="True"
-                    Value="{Binding Crf, Mode=TwoWay}" />
-            <TextBlock Margin="0,0,0,8"
-                       Text="{Binding Crf, StringFormat=CRF: {0}}" />
-
+                <TextBlock Text="CRF (lower = better quality)" />
+                <Slider Minimum="16"
+                        Maximum="36"
+                        TickFrequency="1"
+                        IsSnapToTickEnabled="True"
+                        Value="{Binding Crf, Mode=TwoWay}" />
+                <TextBlock Margin="3"
+                        Text="{Binding Crf, StringFormat=CRF: {0}}" />
+            </StackPanel>
+            </StackPanel>
+<!--
             <TextBlock Text="Encoder Preset (x264)" />
             <TextBox Margin="0,0,0,8"
                      Text="{Binding EncoderPreset, UpdateSourceTrigger=PropertyChanged}" />
@@ -42,6 +49,7 @@
                      Text="{Binding ScaleWidth, UpdateSourceTrigger=PropertyChanged}" />
             <TextBlock Text="Scale Height (blank keeps original/aspect)" />
             <TextBox Text="{Binding ScaleHeight, UpdateSourceTrigger=PropertyChanged}" />
+-->
         </StackPanel>
     </Border>
 </UserControl>

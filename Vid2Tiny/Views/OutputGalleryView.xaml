@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:Vid2Tiny.Views"
              mc:Ignorable="d"
              d:DesignHeight="300"
              d:DesignWidth="280">
@@ -13,29 +14,57 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <TextBlock FontWeight="Bold" Text="Output Gallery" />
-            <StackPanel Grid.Row="1"
-                        Margin="0,8,0,8"
-                        Orientation="Horizontal">
-                <TextBlock VerticalAlignment="Center" Text="{Binding OutputFolder}" />
-                <Button Margin="8,0,0,0"
-                        Padding="10,4"
-                        Content="Refresh"
-                        Command="{Binding RefreshCommand}" />
-            </StackPanel>
-            <ListView Grid.Row="2"
-                      ItemsSource="{Binding Items}">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Width="160" Header="File" DisplayMemberBinding="{Binding DisplayName}" />
-                        <GridViewColumn Width="100" Header="Modified" DisplayMemberBinding="{Binding LastWriteTimeUtc}" />
-                    </GridView>
-                </ListView.View>
-            </ListView>
+            <ListBox Grid.Row="1"
+                     Margin="0,8,0,0"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     ItemsSource="{Binding Items}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="4" />
+                        <Setter Property="Margin" Value="2" />
+                        <Setter Property="VerticalContentAlignment" Value="Top" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border Padding="{TemplateBinding Padding}"
+                                            Background="Transparent"
+                                            BorderThickness="0">
+                                        <ContentPresenter />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Width="132">
+                            <views:VideoThumbnail Width="128"
+                                                  Height="96"
+                                                  FilePath="{Binding FilePath}" />
+                            <TextBlock Margin="0,4,0,0"
+                                       Foreground="#D0D0D0"
+                                       Text="{Binding DisplayName}"
+                                       TextTrimming="CharacterEllipsis"
+                                       TextWrapping="Wrap"
+                                       ToolTip="{Binding FilePath}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
         </Grid>
     </Border>
 </UserControl>

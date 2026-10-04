@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:Vid2Tiny.Views"
              mc:Ignorable="d"
              d:DesignHeight="360"
              d:DesignWidth="280">
@@ -14,58 +15,133 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <TextBlock FontWeight="Bold" Text="Source Gallery" />
-            <Grid Grid.Row="1" Margin="0,8,0,8">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0"
-                         Margin="0,0,6,0"
-                         Text="{Binding NewSourceFolder, UpdateSourceTrigger=PropertyChanged}" />
-                <Button Grid.Column="1"
-                        Padding="10,4"
-                        Content="Add"
-                        Command="{Binding AddFolderCommand}" />
+                <TextBlock FontWeight="Bold" Text="Source Gallery" />
+                <CheckBox Grid.Column="1"
+                          Content="Show options"
+                          IsChecked="{Binding ShowOptions}" />
             </Grid>
 
-            <Grid Grid.Row="2"
-                  Margin="0,0,0,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <ListBox x:Name="FoldersList"
-                         Grid.Column="0"
-                         MinHeight="60"
-                         ItemsSource="{Binding SourceFolders}" />
-                <Button Grid.Column="1"
-                        Margin="6,0,6,0"
-                        Padding="10,4"
-                        Content="Remove"
-                        Command="{Binding RemoveFolderCommand}"
-                        CommandParameter="{Binding SelectedItem, ElementName=FoldersList}" />
-                <Button Grid.Column="2"
-                        Padding="10,4"
-                        Content="Refresh"
-                        Command="{Binding RefreshCommand}" />
+            <Grid Grid.Row="1"
+                  Margin="0,8,0,8">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ShowOptions}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             Margin="0,0,6,0"
+                             Text="{Binding NewSourceFolder, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button Grid.Column="1"
+                            Padding="10,4"
+                            Content="Add"
+                            Command="{Binding AddFolderCommand}" />
+                </Grid>
+
+                <Grid Grid.Row="1"
+                      Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ListBox x:Name="FoldersList"
+                             Grid.Column="0"
+                             MinHeight="60"
+                             ItemsSource="{Binding SourceFolders}" />
+                    <Button Grid.Column="1"
+                            Margin="6,0,6,0"
+                            Padding="10,4"
+                            Content="Remove"
+                            Command="{Binding RemoveFolderCommand}"
+                            CommandParameter="{Binding SelectedItem, ElementName=FoldersList}" />
+                    <Button Grid.Column="2"
+                            Padding="10,4"
+                            Content="Refresh"
+                            Command="{Binding RefreshCommand}" />
+                </Grid>
             </Grid>
 
-            <ListView Grid.Row="3"
-                      ItemsSource="{Binding Items}"
-                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Width="150" Header="File" DisplayMemberBinding="{Binding DisplayName}" />
-                        <GridViewColumn Width="100" Header="Modified" DisplayMemberBinding="{Binding LastWriteTimeUtc}" />
-                    </GridView>
-                </ListView.View>
-            </ListView>
+            <ListBox Grid.Row="2"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     ItemsSource="{Binding Items}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="4" />
+                        <Setter Property="Margin" Value="2" />
+                        <Setter Property="VerticalContentAlignment" Value="Top" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Bd"
+                                            Padding="{TemplateBinding Padding}"
+                                            Background="Transparent"
+                                            BorderBrush="#707070"
+                                            BorderThickness="1"
+                                            CornerRadius="2">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#4A9EFF" />
+                                            <Setter TargetName="Bd" Property="Background" Value="#203050" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#909090" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Width="132">
+                            <views:VideoThumbnail Width="128"
+                                                  Height="96"
+                                                  FilePath="{Binding FilePath}" />
+                            <TextBlock Margin="0,4,0,0"
+                                       Foreground="#D0D0D0"
+                                       Text="{Binding DisplayName}"
+                                       TextTrimming="CharacterEllipsis"
+                                       TextWrapping="Wrap"
+                                       ToolTip="{Binding FilePath}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
         </Grid>
     </Border>
 </UserControl>
