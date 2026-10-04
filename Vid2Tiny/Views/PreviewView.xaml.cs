@@ -21,6 +21,7 @@ public partial class PreviewView : UserControl
     private readonly Line _endMarkerLine;
     private readonly TextBlock _debugTextBlock;
     private bool _isInternalPositionChange;
+    private double _lastTickSeconds;
     private bool _isDrawingSelection;
     private bool _isDraggingSelection;
     private Point _dragStartPoint;
@@ -162,6 +163,7 @@ public partial class PreviewView : UserControl
 
         if (ViewModel.IsPlaying)
         {
+            _lastTickSeconds = VideoPlayer.Position.TotalSeconds;
             VideoPlayer.Play();
             _positionTimer.Start();
         }
@@ -169,12 +171,16 @@ public partial class PreviewView : UserControl
         {
             VideoPlayer.Pause();
             _positionTimer.Stop();
+            _isInternalPositionChange = true;
+            ViewModel.PositionSeconds = VideoPlayer.Position.TotalSeconds;
+            _isInternalPositionChange = false;
         }
     }
 
-    private void OnStepRequested(int seconds)
+    private void OnStepRequested(double seconds)
     {
-        var target = VideoPlayer.Position + TimeSpan.FromSeconds(seconds);
+        var current = ViewModel is { IsPlaying: false } ? TimeSpan.FromSeconds(ViewModel.PositionSeconds) : VideoPlayer.Position;
+        var target = current + TimeSpan.FromSeconds(seconds);
         if (ViewModel is not null)
         {
             target = TimeSpan.FromSeconds(Math.Clamp(target.TotalSeconds, 0, ViewModel.DurationSeconds));
@@ -182,6 +188,7 @@ public partial class PreviewView : UserControl
         }
 
         VideoPlayer.Position = target;
+        _lastTickSeconds = target.TotalSeconds;
     }
 
     private void OnPositionTimerTick(object? sender, EventArgs e)
@@ -191,16 +198,20 @@ public partial class PreviewView : UserControl
             return;
         }
 
-        if (VideoPlayer.Position.TotalSeconds >= ViewModel.EndSeconds && ViewModel.IsPlaying)
+        var position = VideoPlayer.Position.TotalSeconds;
+        var crossedEnd = _lastTickSeconds < ViewModel.EndSeconds && position >= ViewModel.EndSeconds;
+        _lastTickSeconds = position;
+        if (crossedEnd && ViewModel.IsPlaying)
         {
             ViewModel.IsPlaying = false;
             VideoPlayer.Pause();
             _positionTimer.Stop();
-            return;
+            VideoPlayer.Position = TimeSpan.FromSeconds(ViewModel.EndSeconds);
+            position = ViewModel.EndSeconds;
         }
 
         _isInternalPositionChange = true;
-        ViewModel.PositionSeconds = VideoPlayer.Position.TotalSeconds;
+        ViewModel.PositionSeconds = position;
         _isInternalPositionChange = false;
     }
 
@@ -213,6 +224,7 @@ public partial class PreviewView : UserControl
 
         var seconds = Math.Clamp(e.NewValue, 0, ViewModel.DurationSeconds);
         VideoPlayer.Position = TimeSpan.FromSeconds(seconds);
+        _lastTickSeconds = seconds;
         ForceRefreshDisplayedFrame();
     }
 

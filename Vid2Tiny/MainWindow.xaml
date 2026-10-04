@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Vid2Tiny" Closing="Window_Closing"
+        Title="Vid2Tiny" Closing="Window_Closing" PreviewKeyDown="OnPreviewKeyDown" PreviewMouseDown="OnPreviewMouseDown"
         Width="1920"
         Height="1000"
         MinWidth="1200"
@@ -70,6 +70,7 @@
                                         <Button DockPanel.Dock="Right"
                                                 Margin="4,0,0,0"
                                                 Style="{StaticResource ToolButton}"
+                                                AutomationProperties.Name="Open output folder in Explorer"
                                                 Command="{Binding OpenOutputFolderCommand}"
                                                 ToolTip="Open in Explorer">
                                             <TextBlock Style="{StaticResource Icon}" Text="&#xED25;" />
@@ -83,7 +84,7 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="File name" />
-                                    <TextBox Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBox AutomationProperties.Name="File name" Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
                             </Grid>
 

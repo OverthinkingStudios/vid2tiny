@@ -21,6 +21,7 @@
         <DockPanel>
             <Button DockPanel.Dock="Right"
                     Style="{StaticResource ToolButton}"
+                    AutomationProperties.Name="Rescan output folder"
                     Command="{Binding RefreshCommand}"
                     ToolTip="Rescan output folder (F5)">
                 <TextBlock Style="{StaticResource Icon}" Text="&#xE72C;" />

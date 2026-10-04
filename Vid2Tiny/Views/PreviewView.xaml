@@ -142,6 +142,27 @@
                 <DockPanel Grid.Row="2" Margin="0,8,0,0">
                     <Button DockPanel.Dock="Right"
                             Margin="6,0,0,0"
+                            AutomationProperties.Name="Next clip"
+                            Command="{Binding NextClipCommand}"
+                            ToolTipService.ShowOnDisabled="True">
+                        <Button.ToolTip>
+                            <StackPanel MaxWidth="320">
+                                <TextBlock FontWeight="SemiBold" Text="Next clip (N)" />
+                                <TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                                           Text="Starts the next clip right where you are: the start moves to the current position, the end is cleared so you can play on, and the file name moves to the next free number (_01, _02, …) so the clip you just exported is not overwritten." />
+                                <TextBlock Margin="0,6,0,0"
+                                           Foreground="{StaticResource Brush.TextSecondary}"
+                                           TextWrapping="Wrap"
+                                           Text="Available once an end is set before the end of the video." />
+                            </StackPanel>
+                        </Button.ToolTip>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Next clip" />
+                            <TextBlock Margin="6,0,0,0" FontSize="12" Style="{StaticResource Icon}" Text="&#xE72A;" />
+                        </StackPanel>
+                    </Button>
+                    <Button DockPanel.Dock="Right"
+                            Margin="6,0,0,0"
                             Command="{Binding MarkEndCommand}"
                             Content="Set end"
                             ToolTip="End the clip at the current position" />
@@ -163,6 +184,7 @@
 
                     <Button Padding="10,5"
                             Style="{StaticResource ToolButton}"
+                            AutomationProperties.Name="Play or pause"
                             Command="{Binding TogglePlayPauseCommand}"
                             ToolTip="Play or pause">
                         <TextBlock FontSize="16">
@@ -183,6 +205,20 @@
                             Command="{Binding StepBackCommand}"
                             Content="−5s"
                             ToolTip="Back 5 seconds" />
+                    <Button Margin="2,0,0,0"
+                            Style="{StaticResource ToolButton}"
+                            AutomationProperties.Name="Previous frame"
+                            Command="{Binding StepFrameBackCommand}"
+                            ToolTip="Previous frame (,)">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE892;" />
+                    </Button>
+                    <Button Margin="2,0,0,0"
+                            Style="{StaticResource ToolButton}"
+                            AutomationProperties.Name="Next frame"
+                            Command="{Binding StepFrameForwardCommand}"
+                            ToolTip="Next frame (.)">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE893;" />
+                    </Button>
                     <Button Margin="2,0,0,0"
                             Style="{StaticResource ToolButton}"
                             Command="{Binding StepForwardCommand}"

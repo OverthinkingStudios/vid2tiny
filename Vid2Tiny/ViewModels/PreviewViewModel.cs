@@ -6,21 +6,29 @@ namespace Vid2Tiny.ViewModels;
 
 public partial class PreviewViewModel : ObservableObject
 {
+    private const double FallbackFrameRate = 30;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LoadedFileName))]
     private string loadedFilePath = string.Empty;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NextClipCommand))]
     private bool hasVideo;
 
     [ObservableProperty]
     private bool isPlaying;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NextClipCommand))]
     private double positionSeconds;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NextClipCommand))]
     private double durationSeconds;
+
+    [ObservableProperty]
+    private double frameRate;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ClipSeconds))]
@@ -28,6 +36,7 @@ public partial class PreviewViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ClipSeconds))]
+    [NotifyCanExecuteChangedFor(nameof(NextClipCommand))]
     private double endSeconds;
 
     [ObservableProperty]
@@ -52,9 +61,15 @@ public partial class PreviewViewModel : ObservableObject
 
     public double ClipSeconds => Math.Max(0, EndSeconds - StartSeconds);
 
+    private bool HasEnd => EndSeconds < DurationSeconds - FrameSeconds / 2;
+
+    private double FrameSeconds => 1 / (FrameRate > 0 ? FrameRate : FallbackFrameRate);
+
     public event Action? PlaybackToggled;
 
-    public event Action<int>? StepRequested;
+    public event Action<double>? StepRequested;
+
+    public event Action? NextClipStarted;
 
     [RelayCommand(CanExecute = nameof(CanControlVideo))]
     private void TogglePlayPause()
@@ -76,31 +91,68 @@ public partial class PreviewViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanControlVideo))]
+    private void StepFrameBack() => StepFrame(-1);
+
+    [RelayCommand(CanExecute = nameof(CanControlVideo))]
+    private void StepFrameForward() => StepFrame(1);
+
+    [RelayCommand(CanExecute = nameof(CanControlVideo))]
     private void MarkStart()
     {
-        StartSeconds = Math.Clamp(PositionSeconds, 0, EndSeconds);
+        StartSeconds = Math.Clamp(PositionSeconds, 0, DurationSeconds);
+        if (EndSeconds <= StartSeconds)
+        {
+            EndSeconds = DurationSeconds;
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanControlVideo))]
     private void MarkEnd()
     {
-        EndSeconds = Math.Clamp(PositionSeconds, StartSeconds, DurationSeconds);
+        EndSeconds = Math.Clamp(PositionSeconds, 0, DurationSeconds);
+        if (StartSeconds >= EndSeconds)
+        {
+            StartSeconds = 0;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanStartNextClip))]
+    private void NextClip()
+    {
+        StartSeconds = Math.Clamp(PositionSeconds, 0, DurationSeconds);
+        EndSeconds = DurationSeconds;
+        NextClipStarted?.Invoke();
     }
 
     private bool CanControlVideo() => HasVideo;
+
+    private bool CanStartNextClip() => HasVideo && HasEnd && PositionSeconds < DurationSeconds - FrameSeconds;
+
+    private void StepFrame(int frames)
+    {
+        if (IsPlaying)
+        {
+            TogglePlayPause();
+        }
+
+        StepRequested?.Invoke(frames * FrameSeconds);
+    }
 
     partial void OnHasVideoChanged(bool value)
     {
         TogglePlayPauseCommand.NotifyCanExecuteChanged();
         StepBackCommand.NotifyCanExecuteChanged();
         StepForwardCommand.NotifyCanExecuteChanged();
+        StepFrameBackCommand.NotifyCanExecuteChanged();
+        StepFrameForwardCommand.NotifyCanExecuteChanged();
         MarkStartCommand.NotifyCanExecuteChanged();
         MarkEndCommand.NotifyCanExecuteChanged();
     }
 
-    public void LoadVideo(string path, TimeSpan duration, int width, int height)
+    public void LoadVideo(string path, TimeSpan duration, int width, int height, double frameRate)
     {
         LoadedFilePath = path;
+        FrameRate = frameRate;
         HasVideo = true;
         IsPlaying = false;
         PositionSeconds = 0;

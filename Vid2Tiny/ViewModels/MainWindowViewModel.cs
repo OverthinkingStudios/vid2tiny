@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.IO;
@@ -64,6 +66,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         SourceGallery.OpenRequested += path => _ = LoadVideoAsync(path);
         OutputGallery.OpenRequested += path => _ = LoadVideoAsync(path);
+        Preview.NextClipStarted += () => OutputFileName = FreeOutputFileName(OutputFileName, nextNumber: true);
         Preview.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(PreviewViewModel.HasVideo))
@@ -120,8 +123,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             var width = metadata?.Width ?? 0;
             var height = metadata?.Height ?? 0;
 
-            Preview.LoadVideo(path, duration, width, height);
-            OutputFileName = $"{Path.GetFileNameWithoutExtension(path)}_clip.mp4";
+            Preview.LoadVideo(path, duration, width, height, metadata?.FrameRate ?? 0);
+            OutputFileName = FreeOutputFileName($"{Path.GetFileNameWithoutExtension(path)}_clip.mp4", nextNumber: false);
             _logService.Add(LogCategory.Info, $"Loaded: {path}");
         }
         catch (Exception ex)
@@ -312,6 +315,35 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             EncoderPreset = EncodeOptions.EncoderPreset
         };
     }
+
+    private string FreeOutputFileName(string fileName, bool nextNumber)
+    {
+        var name = SanitizeOutputFileName(fileName);
+        var extension = Path.GetExtension(name);
+        var stem = Path.GetFileNameWithoutExtension(name);
+        var suffix = ClipNumberSuffix().Match(stem);
+        var number = suffix.Success ? int.Parse(suffix.Groups[1].Value, CultureInfo.InvariantCulture) : 0;
+        if (suffix.Success)
+        {
+            stem = stem[..suffix.Index];
+        }
+
+        if (nextNumber)
+        {
+            number++;
+        }
+
+        string Candidate() => number == 0 ? stem + extension : $"{stem}_{number:00}{extension}";
+        while (File.Exists(Path.Combine(OutputFolder, Candidate())))
+        {
+            number++;
+        }
+
+        return Candidate();
+    }
+
+    [GeneratedRegex(@"_(\d{2,3})$")]
+    private static partial Regex ClipNumberSuffix();
 
     private static string SanitizeOutputFileName(string candidate)
     {

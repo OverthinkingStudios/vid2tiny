@@ -7,4 +7,6 @@ public sealed class VideoMetadata
     public required int Width { get; init; }
 
     public required int Height { get; init; }
+
+    public double FrameRate { get; init; }
 }

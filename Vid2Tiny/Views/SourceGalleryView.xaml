@@ -36,6 +36,7 @@
             <Button DockPanel.Dock="Right"
                     Margin="0,0,4,0"
                     Style="{StaticResource ToolButton}"
+                    AutomationProperties.Name="Rescan folders"
                     Command="{Binding RefreshCommand}"
                     ToolTip="Rescan folders (F5)">
                 <TextBlock Style="{StaticResource Icon}" Text="&#xE72C;" />
@@ -59,6 +60,7 @@
                                 <Button DockPanel.Dock="Right"
                                         Padding="6"
                                         Style="{StaticResource ToolButton}"
+                                        AutomationProperties.Name="Remove folder"
                                         Command="{Binding DataContext.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                         CommandParameter="{Binding}"
                                         ToolTip="Stop scanning this folder">
