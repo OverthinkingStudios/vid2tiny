@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using Vid2Tiny.Services;
 using Vid2Tiny.ViewModels;
 
 namespace Vid2Tiny
@@ -11,8 +10,6 @@ namespace Vid2Tiny
         public MainWindow()
         {
             InitializeComponent();
-            var version = VersionService.AppVersion;
-            Title = $"vid2tiny v{version.Major}.{version.Minor}.{version.Build}";
         }
 
         private void OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -54,4 +51,4 @@ namespace Vid2Tiny
             }
         }
     }
-}
+}

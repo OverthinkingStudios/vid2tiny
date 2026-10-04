@@ -49,8 +49,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         LogService logService)
     {
 
-        var version = VersionService.AppVersion;
-        logService.Add(LogCategory.Info, $"Initializing vid2tiny v{version.Major}.{version.Minor}.{version.Build}");
+        logService.Add(LogCategory.Info, $"Initializing {AppInfo.Title}");
 
         _settingsService = settingsService;
         _settings = settings;
@@ -84,7 +83,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public async Task InitializeAsync()
     {
         OutputFolder = string.IsNullOrWhiteSpace(_settings.OutputFolder)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "vid2tiny")
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), AppInfo.Name)
             : _settings.OutputFolder;
 
         OutputGallery.OutputFolder = OutputFolder;
@@ -98,7 +97,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         EncodeOptions.ScaleWidth = _settings.LastScaleWidth;
         EncodeOptions.ScaleHeight = _settings.LastScaleHeight;
 
-        _logService.Add(LogCategory.Info, "Vid2Tiny started.");
+        _logService.Add(LogCategory.Info, $"{AppInfo.Name} started.");
 
         await SourceGallery.InitializeAsync(_settings.SourceFolders, _settings.HiddenTags, _settings.TagColors);
         if (SourceGallery.Newest is { } newest)

@@ -16,7 +16,7 @@ public sealed class SettingsService
     public SettingsService()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appDir = Path.Combine(appData, "Vid2Tiny");
+        var appDir = Path.Combine(appData, AppInfo.Name);
         Directory.CreateDirectory(appDir);
         _settingsPath = Path.Combine(appDir, "settings.json");
     }
