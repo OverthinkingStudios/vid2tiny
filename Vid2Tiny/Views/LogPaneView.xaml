@@ -5,49 +5,60 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:models="clr-namespace:Vid2Tiny.Models"
              mc:Ignorable="d"
-             d:DesignHeight="220"
+             d:DesignHeight="160"
              d:DesignWidth="1200">
-    <Border BorderBrush="#505050"
-            BorderThickness="1"
-            Margin="8,0,8,8">
+    <Border Padding="16,10,8,8" Style="{StaticResource Card}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Margin="8,6,8,4"
-                       FontWeight="Bold"
-                       Text="Log" />
+            <TextBlock Margin="0,0,0,6" Style="{StaticResource SectionTitle}" Text="Log" />
             <ListBox x:Name="LogListBox"
                      Grid.Row="1"
-                     ItemsSource="{Binding Entries}">
+                     Background="Transparent"
+                     BorderThickness="0"
+                     FontFamily="{StaticResource Font.Mono}"
+                     FontSize="12"
+                     ItemsSource="{Binding Entries}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Focusable" Value="False" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <ContentPresenter Margin="0,1" />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock>
+                        <TextBlock TextWrapping="Wrap">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="#D0D0D0" />
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Category}" Value="{x:Static models:LogCategory.Info}">
-                                            <Setter Property="Foreground" Value="#A0D0FF" />
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Info}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Category}" Value="{x:Static models:LogCategory.Warning}">
-                                            <Setter Property="Foreground" Value="#FFCC66" />
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Warning}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Category}" Value="{x:Static models:LogCategory.Error}">
-                                            <Setter Property="Foreground" Value="#FF8080" />
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Error}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Category}" Value="{x:Static models:LogCategory.Process}">
-                                            <Setter Property="Foreground" Value="#BFBFBF" />
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </TextBlock.Style>
-                            <Run Text="{Binding TimestampUtc, StringFormat=HH:mm:ss}" />
-                            <Run Text=" " />
-                            <Run Text="{Binding Category}" />
-                            <Run Text=" | " />
-                            <Run Text="{Binding Message}" />
+                            <Run Foreground="{StaticResource Brush.TextTertiary}" Text="{Binding TimestampLocal, StringFormat=HH:mm:ss, Mode=OneWay}" />
+                            <Run Text="{Binding Category, Mode=OneWay}" />
+                            <Run Text="{Binding Message, Mode=OneWay}" />
                         </TextBlock>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

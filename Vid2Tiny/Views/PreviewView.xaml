@@ -3,119 +3,200 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:Vid2Tiny.Views"
              mc:Ignorable="d"
              d:DesignHeight="450"
              d:DesignWidth="800">
+    <UserControl.Resources>
+        <views:SecondsToTimeConverter x:Key="Time" />
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0"
-                Margin="8"
-                Background="#202020"
-                BorderBrush="#505050"
-                BorderThickness="1"
-                AllowDrop="True"
-                DragOver="OnDragOver"
-                Drop="OnDrop">
+        <DockPanel Margin="4,6,4,9">
+            <TextBlock DockPanel.Dock="Right"
+                       Margin="12,0,0,0"
+                       VerticalAlignment="Bottom"
+                       Style="{StaticResource Caption}"
+                       Visibility="{Binding HasVideo, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock.Text>
+                    <MultiBinding StringFormat="{}{0} × {1}">
+                        <Binding Path="SourcePixelWidth" />
+                        <Binding Path="SourcePixelHeight" />
+                    </MultiBinding>
+                </TextBlock.Text>
+            </TextBlock>
+            <TextBlock FontSize="14"
+                       FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding LoadedFilePath}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Text" Value="{Binding LoadedFileName}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasVideo}" Value="False">
+                                <Setter Property="Text" Value="No video open" />
+                                <Setter Property="Foreground" Value="{StaticResource Brush.TextTertiary}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </DockPanel>
+
+        <Border Grid.Row="1" Margin="0,8,0,0" Padding="12" Style="{StaticResource Card}">
             <Grid>
-                <MediaElement x:Name="VideoPlayer"
-                              LoadedBehavior="Manual"
-                              UnloadedBehavior="Manual"
-                              Stretch="Uniform"
-                              Loaded="OnVideoPlayerLoaded"
-                              Unloaded="OnVideoPlayerUnloaded"
-                              MediaOpened="OnMediaOpened"
-                              MediaEnded="OnMediaEnded"
-                              ScrubbingEnabled="True" />
-                <Canvas x:Name="OverlayCanvas"
-                        Background="#01000000"
-                        MouseLeftButtonDown="OnOverlayMouseLeftButtonDown"
-                        MouseMove="OnOverlayMouseMove"
-                        MouseLeftButtonUp="OnOverlayMouseLeftButtonUp"
-                        SizeChanged="OnOverlaySizeChanged" />
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border Background="{StaticResource Brush.Stage}"
+                        CornerRadius="4"
+                        AllowDrop="True"
+                        DragEnter="OnDragEnter"
+                        DragOver="OnDragOver"
+                        DragLeave="OnDragLeave"
+                        Drop="OnDrop">
+                    <Grid>
+                        <MediaElement x:Name="VideoPlayer"
+                                      LoadedBehavior="Manual"
+                                      UnloadedBehavior="Manual"
+                                      Stretch="Uniform"
+                                      Loaded="OnVideoPlayerLoaded"
+                                      Unloaded="OnVideoPlayerUnloaded"
+                                      MediaOpened="OnMediaOpened"
+                                      MediaEnded="OnMediaEnded"
+                                      ScrubbingEnabled="True" />
+                        <Canvas x:Name="OverlayCanvas"
+                                Background="#01000000"
+                                MouseLeftButtonDown="OnOverlayMouseLeftButtonDown"
+                                MouseMove="OnOverlayMouseMove"
+                                MouseLeftButtonUp="OnOverlayMouseLeftButtonUp"
+                                SizeChanged="OnOverlaySizeChanged" />
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasVideo}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock HorizontalAlignment="Center"
+                                       FontSize="36"
+                                       Foreground="#5A5A5A"
+                                       Style="{StaticResource Icon}"
+                                       Text="&#xE714;" />
+                            <TextBlock Margin="0,12,0,0"
+                                       HorizontalAlignment="Center"
+                                       FontSize="15"
+                                       Foreground="#D6D6D6"
+                                       Text="Drop a video here" />
+                            <TextBlock Margin="0,4,0,0"
+                                       HorizontalAlignment="Center"
+                                       Foreground="#8A8A8A"
+                                       Text="Drag one from the gallery, or from Explorer" />
+                        </StackPanel>
+                        <Border x:Name="DropHighlight"
+                                Background="#33005FB8"
+                                BorderBrush="{StaticResource Brush.Accent}"
+                                BorderThickness="2"
+                                CornerRadius="4"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed">
+                            <TextBlock HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"
+                                       Text="Drop to open" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Grid x:Name="SliderContainer"
+                      Grid.Row="1"
+                      Margin="0,10,0,0"
+                      SizeChanged="OnSliderContainerSizeChanged">
+                    <Canvas x:Name="TimelineMarkersCanvas"
+                            Height="22"
+                            Margin="9,0"
+                            IsHitTestVisible="False" />
+                    <Slider x:Name="SeekSlider"
+                            Minimum="0"
+                            Maximum="{Binding DurationSeconds}"
+                            Value="{Binding PositionSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            ValueChanged="OnSeekValueChanged" />
+                </Grid>
+
+                <DockPanel Grid.Row="2" Margin="0,8,0,0">
+                    <Button DockPanel.Dock="Right"
+                            Margin="6,0,0,0"
+                            Command="{Binding MarkEndCommand}"
+                            Content="Set end"
+                            ToolTip="End the clip at the current position" />
+                    <Button DockPanel.Dock="Right"
+                            Command="{Binding MarkStartCommand}"
+                            Content="Set start"
+                            ToolTip="Start the clip at the current position" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Margin="0,0,14,0"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource Caption}">
+                        <Run Text="Clip" />
+                        <Run Foreground="{StaticResource Brush.Text}" Text="{Binding StartSeconds, Converter={StaticResource Time}, Mode=OneWay}" />
+                        <Run Text="–" />
+                        <Run Foreground="{StaticResource Brush.Text}" Text="{Binding EndSeconds, Converter={StaticResource Time}, Mode=OneWay}" />
+                        <Run Text="·" />
+                        <Run Foreground="{StaticResource Brush.Text}" Text="{Binding ClipSeconds, Converter={StaticResource Time}, Mode=OneWay}" />
+                    </TextBlock>
+
+                    <Button Padding="10,5"
+                            Style="{StaticResource ToolButton}"
+                            Command="{Binding TogglePlayPauseCommand}"
+                            ToolTip="Play or pause">
+                        <TextBlock FontSize="16">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                    <Setter Property="Text" Value="&#xE768;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                            <Setter Property="Text" Value="&#xE769;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button>
+                    <Button Margin="4,0,0,0"
+                            Style="{StaticResource ToolButton}"
+                            Command="{Binding StepBackCommand}"
+                            Content="−5s"
+                            ToolTip="Back 5 seconds" />
+                    <Button Margin="2,0,0,0"
+                            Style="{StaticResource ToolButton}"
+                            Command="{Binding StepForwardCommand}"
+                            Content="+5s"
+                            ToolTip="Forward 5 seconds" />
+                    <TextBlock Margin="12,0,0,0"
+                               VerticalAlignment="Center"
+                               FontFamily="{StaticResource Font.Mono}">
+                        <Run Text="{Binding PositionSeconds, Converter={StaticResource Time}, Mode=OneWay}" />
+                        <Run Foreground="{StaticResource Brush.TextTertiary}" Text="/" />
+                        <Run Foreground="{StaticResource Brush.TextSecondary}" Text="{Binding DurationSeconds, Converter={StaticResource Time}, Mode=OneWay}" />
+                    </TextBlock>
+                </DockPanel>
             </Grid>
         </Border>
-
-        <Grid Grid.Row="1"
-              Margin="8,0,8,6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <Button Grid.Column="0"
-                    Margin="0,0,6,0"
-                    Padding="10,4"
-                    Content="Play/Pause"
-                    Command="{Binding TogglePlayPauseCommand}" />
-            <Button Grid.Column="1"
-                    Margin="0,0,6,0"
-                    Padding="10,4"
-                    Content="-5s"
-                    Command="{Binding StepBackCommand}" />
-            <Button Grid.Column="2"
-                    Margin="0,0,6,0"
-                    Padding="10,4"
-                    Content="+5s"
-                    Command="{Binding StepForwardCommand}" />
-            <Button Grid.Column="3"
-                    Margin="0,0,6,0"
-                    Padding="10,4"
-                    Content="Set Start"
-                    Command="{Binding MarkStartCommand}" />
-            <Button Grid.Column="4"
-                    HorizontalAlignment="Left"
-                    Margin="0,0,6,0"
-                    Padding="10,4"
-                    Content="Set End"
-                    Command="{Binding MarkEndCommand}" />
-            <TextBlock Grid.Column="5"
-                       VerticalAlignment="Center"
-                       Text="{Binding LoadedFilePath}" />
-        </Grid>
-
-        <Grid Grid.Row="2"
-              Margin="8,0,8,8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid Grid.Row="0" x:Name="SliderContainer" SizeChanged="OnSliderContainerSizeChanged">
-                <Slider x:Name="SeekSlider"
-                        Minimum="0"
-                        Maximum="{Binding DurationSeconds}"
-                        Value="{Binding PositionSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                        ValueChanged="OnSeekValueChanged" />
-                <Canvas x:Name="TimelineMarkersCanvas" IsHitTestVisible="False" VerticalAlignment="Stretch" Height="24" Margin="0,-12,0,0" />
-            </Grid>
-            <Grid Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0"
-                           Margin="0,2,8,0"
-                           Text="{Binding StartSeconds, StringFormat=Start: {0:F1}s}" />
-                <TextBlock Grid.Column="1"
-                           Margin="0,2,8,0"
-                           Text="{Binding PositionSeconds, StringFormat=Now: {0:F1}s}" />
-                <TextBlock Grid.Column="2"
-                           Margin="0,2,8,0"
-                           Text="{Binding EndSeconds, StringFormat=End: {0:F1}s}" />
-                <TextBlock Grid.Column="4"
-                           Margin="0,2,0,0"
-                           Text="Drop video file here" />
-            </Grid>
-        </Grid>
     </Grid>
 </UserControl>

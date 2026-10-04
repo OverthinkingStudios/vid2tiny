@@ -8,118 +8,127 @@
         Width="1920"
         Height="1000"
         MinWidth="1200"
-        MinHeight="760">
-    <Grid>
+        MinHeight="760"
+        Background="{StaticResource Brush.Window}"
+        Foreground="{StaticResource Brush.Text}"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="120" />
+            <RowDefinition Height="*" MinHeight="420" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="150" MinHeight="70" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" MinHeight="200" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <Grid>
             <Grid.ColumnDefinitions>
-                <!-- Video preview, encode options, export -->
-                <ColumnDefinition Width="3*" />
-                <!-- Splitter -->
-                <ColumnDefinition Width="Auto" />
-                <!-- Source gallery, output gallery -->
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="3*" MinWidth="640" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" MinWidth="380" />
             </Grid.ColumnDefinitions>
 
-            <ContentControl Grid.Row="0" Grid.Column="0" Content="{Binding Preview}" />
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <Grid Grid.Row="2"  Grid.Column="0" Margin="8,0,8,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <ContentControl Grid.Column="0"
-                                VerticalAlignment="Stretch"
-                                Content="{Binding EncodeOptions}" />
+                <ContentControl Content="{Binding Preview}" Focusable="False" />
 
-                <Border Grid.Column="1"
-                        Margin="8,0,0,0"
-                        VerticalAlignment="Stretch"
-                        Padding="8"
-                        BorderBrush="#505050"
-                        BorderThickness="1">
-                    <StackPanel>
-                        <TextBlock FontWeight="Bold" Text="Export" />
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Margin="0,0,8,0"
-                                       VerticalAlignment="Center"
-                                       Text="Output Folder" />
-                            <TextBox Grid.Column="1"
-                                     Margin="0,0,8,0"
-                                     Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" />
-                            <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                <Button Padding="10,4"
-                                        Content="Open folder"
-                                        Command="{Binding OpenOutputFolderCommand}" />
-                                <Button Margin="8,0,0,0"
-                                        Padding="14,6"
-                                        FontWeight="Bold"
-                                        Content="Convert Clip"
-                                        Command="{Binding ConvertCommand}" />
-                            </StackPanel>
+                <Grid Grid.Row="1" Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Style="{StaticResource Card}">
+                        <ContentControl Content="{Binding EncodeOptions}" Focusable="False" />
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Margin="0,0,0,12" Style="{StaticResource SectionTitle}" Text="Export" />
+
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Output folder" />
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right"
+                                                Margin="4,0,0,0"
+                                                Style="{StaticResource ToolButton}"
+                                                Command="{Binding OpenOutputFolderCommand}"
+                                                ToolTip="Open in Explorer">
+                                            <TextBlock Style="{StaticResource Icon}" Text="&#xED25;" />
+                                        </Button>
+                                        <Button DockPanel.Dock="Right"
+                                                Margin="4,0,0,0"
+                                                Command="{Binding BrowseOutputFolderCommand}"
+                                                Content="Browse…" />
+                                        <TextBox Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DockPanel>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="File name" />
+                                    <TextBox Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <DockPanel Grid.Row="2" Margin="0,16,0,0">
+                                <Button DockPanel.Dock="Right"
+                                        Padding="20,7"
+                                        FontWeight="SemiBold"
+                                        Style="{StaticResource AccentButton}"
+                                        Command="{Binding ConvertCommand}"
+                                        Content="Convert clip" />
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource Caption}"
+                                               Text="{Binding ExportStatus}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <ProgressBar Margin="0,6,0,0"
+                                                 IsIndeterminate="{Binding IsBusy}"
+                                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                                </StackPanel>
+                            </DockPanel>
                         </Grid>
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Margin="0,0,8,0"
-                                       VerticalAlignment="Center"
-                                       Text="Output File Name" />
-                            <TextBox Grid.Column="1"
-                                     Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" />
-                        </Grid>
-                        <TextBlock Margin="0,8,0,0"
-                                   Foreground="#888888"
-                                   Text="{Binding IsBusy, StringFormat=Busy: {0}}" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Grid>
             </Grid>
 
-            <TabControl Grid.Row="0" Grid.Column="2"
-                        Margin="8,0,8,8">
-                <TabItem Header="Source Videos">
-                    <ContentControl Content="{Binding SourceGallery}" />
+            <GridSplitter Grid.Column="1"
+                          HorizontalAlignment="Stretch"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Columns" />
+
+            <TabControl Grid.Column="2">
+                <TabItem Header="Source videos">
+                    <ContentControl Content="{Binding SourceGallery}" Focusable="False" />
                 </TabItem>
-                <TabItem Header="Output Videos">
-                    <ContentControl Content="{Binding OutputGallery}" />
+                <TabItem Header="Output clips">
+                    <ContentControl Content="{Binding OutputGallery}" Focusable="False" />
                 </TabItem>
             </TabControl>
-
-            <GridSplitter Grid.Column="1" Grid.RowSpan="99"
-                      VerticalAlignment="Stretch"
-                      Width="5"
-                      Background="#404040"
-                      ResizeBehavior="PreviousAndNext" 
-                      ResizeDirection="Columns" />
         </Grid>
 
-        <GridSplitter Grid.Row="1" Grid.ColumnSpan="99"
+        <GridSplitter Grid.Row="1"
                       HorizontalAlignment="Stretch"
-                      Height="5"
-                      Background="#404040"
+                      VerticalAlignment="Stretch"
                       ResizeBehavior="PreviousAndNext"
                       ResizeDirection="Rows" />
 
-
-
-
-        <ContentControl Grid.Row="2"
-                        Content="{Binding Log}" />
+        <ContentControl Grid.Row="2" Content="{Binding Log}" Focusable="False" />
     </Grid>
 </Window>

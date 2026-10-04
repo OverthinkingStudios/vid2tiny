@@ -4,20 +4,26 @@
              xmlns:viewModels="clr-namespace:Vid2Tiny.ViewModels"
              xmlns:views="clr-namespace:Vid2Tiny.Views">
     <Application.Resources>
-        <DataTemplate DataType="{x:Type viewModels:PreviewViewModel}">
-            <views:PreviewView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type viewModels:EncodeOptionsViewModel}">
-            <views:EncodeOptionsView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type viewModels:SourceGalleryViewModel}">
-            <views:SourceGalleryView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type viewModels:OutputGalleryViewModel}">
-            <views:OutputGalleryView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type viewModels:LogViewModel}">
-            <views:LogPaneView />
-        </DataTemplate>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Theme.xaml" />
+                <ResourceDictionary Source="Views/GalleryResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <DataTemplate DataType="{x:Type viewModels:PreviewViewModel}">
+                <views:PreviewView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewModels:EncodeOptionsViewModel}">
+                <views:EncodeOptionsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewModels:SourceGalleryViewModel}">
+                <views:SourceGalleryView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewModels:OutputGalleryViewModel}">
+                <views:OutputGalleryView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewModels:LogViewModel}">
+                <views:LogPaneView />
+            </DataTemplate>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

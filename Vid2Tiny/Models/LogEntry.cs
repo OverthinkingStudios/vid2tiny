@@ -15,4 +15,6 @@ public sealed class LogEntry
     public required LogCategory Category { get; init; }
 
     public required string Message { get; init; }
+
+    public DateTime TimestampLocal => TimestampUtc.ToLocalTime();
 }

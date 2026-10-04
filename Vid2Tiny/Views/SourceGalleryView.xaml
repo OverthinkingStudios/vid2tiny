@@ -4,144 +4,235 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:views="clr-namespace:Vid2Tiny.Views"
+             xmlns:viewModels="clr-namespace:Vid2Tiny.ViewModels"
              mc:Ignorable="d"
-             d:DesignHeight="360"
-             d:DesignWidth="280">
-    <Border Margin="8"
-            Padding="8"
-            BorderBrush="#505050"
-            BorderThickness="1">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+             d:DesignHeight="600"
+             d:DesignWidth="420"
+             AllowDrop="True"
+             DragOver="OnDragOver"
+             Drop="OnDrop">
+    <UserControl.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+    </UserControl.InputBindings>
 
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock FontWeight="Bold" Text="Source Gallery" />
-                <CheckBox Grid.Column="1"
-                          Content="Show options"
-                          IsChecked="{Binding ShowOptions}" />
-            </Grid>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <Grid Grid.Row="1"
-                  Margin="0,8,0,8">
-                <Grid.Style>
-                    <Style TargetType="Grid">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ShowOptions}" Value="True">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Grid.Style>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0"
-                             Margin="0,0,6,0"
-                             Text="{Binding NewSourceFolder, UpdateSourceTrigger=PropertyChanged}" />
-                    <Button Grid.Column="1"
-                            Padding="10,4"
-                            Content="Add"
-                            Command="{Binding AddFolderCommand}" />
-                </Grid>
+        <DockPanel>
+            <ToggleButton DockPanel.Dock="Right"
+                          Style="{StaticResource ToolButton}"
+                          IsChecked="{Binding IsFolderPanelOpen}"
+                          ToolTip="Choose which folders to scan for recordings">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icon}" Text="&#xED25;" />
+                    <TextBlock Margin="6,0,0,0" Text="Folders" />
+                </StackPanel>
+            </ToggleButton>
+            <Button DockPanel.Dock="Right"
+                    Margin="0,0,4,0"
+                    Style="{StaticResource ToolButton}"
+                    Command="{Binding RefreshCommand}"
+                    ToolTip="Rescan folders (F5)">
+                <TextBlock Style="{StaticResource Icon}" Text="&#xE72C;" />
+            </Button>
+            <TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource Caption}"
+                       Text="{Binding Summary}" />
+        </DockPanel>
 
-                <Grid Grid.Row="1"
-                      Margin="0,8,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ListBox x:Name="FoldersList"
-                             Grid.Column="0"
-                             MinHeight="60"
-                             ItemsSource="{Binding SourceFolders}" />
-                    <Button Grid.Column="1"
-                            Margin="6,0,6,0"
-                            Padding="10,4"
-                            Content="Remove"
-                            Command="{Binding RemoveFolderCommand}"
-                            CommandParameter="{Binding SelectedItem, ElementName=FoldersList}" />
-                    <Button Grid.Column="2"
-                            Padding="10,4"
-                            Content="Refresh"
-                            Command="{Binding RefreshCommand}" />
-                </Grid>
-            </Grid>
+        <Border Grid.Row="1"
+                Margin="0,8,0,0"
+                Padding="10,8"
+                Background="{StaticResource Brush.Subtle}"
+                CornerRadius="6"
+                Visibility="{Binding IsFolderPanelOpen, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <ItemsControl ItemsSource="{Binding SourceFolders}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,0,0,2">
+                                <Button DockPanel.Dock="Right"
+                                        Padding="6"
+                                        Style="{StaticResource ToolButton}"
+                                        Command="{Binding DataContext.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}"
+                                        ToolTip="Stop scanning this folder">
+                                    <TextBlock FontSize="10" Style="{StaticResource Icon}" Text="&#xE8BB;" />
+                                </Button>
+                                <TextBlock VerticalAlignment="Center"
+                                           Text="{Binding}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding}" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <DockPanel Margin="0,6,0,0">
+                    <Button Command="{Binding BrowseFoldersCommand}" Content="Add folder…" />
+                    <TextBlock Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource Caption}"
+                               Text="Each subfolder becomes a tag. The output folder is always skipped."
+                               TextWrapping="Wrap" />
+                </DockPanel>
+            </StackPanel>
+        </Border>
 
-            <ListBox Grid.Row="2"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     ItemsSource="{Binding Items}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
-                <ListBox.ItemsPanel>
+        <DockPanel Grid.Row="2" Margin="0,10,0,0">
+            <Button DockPanel.Dock="Right"
+                    Margin="6,4,0,0"
+                    VerticalAlignment="Top"
+                    Style="{StaticResource LinkButton}"
+                    Command="{Binding ShowAllTagsCommand}"
+                    Content="Show all"
+                    Visibility="{Binding HasHiddenTags, Converter={StaticResource BoolToVisibility}}" />
+            <ItemsControl ItemsSource="{Binding Tags}" Focusable="False">
+                <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
+                        <WrapPanel />
                     </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="4" />
-                        <Setter Property="Margin" Value="2" />
-                        <Setter Property="VerticalContentAlignment" Value="Top" />
-                        <Setter Property="Background" Value="Transparent" />
-                        <Setter Property="BorderThickness" Value="0" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <Border x:Name="Bd"
-                                            Padding="{TemplateBinding Padding}"
-                                            Background="Transparent"
-                                            BorderBrush="#707070"
-                                            BorderThickness="1"
-                                            CornerRadius="2">
-                                        <ContentPresenter />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#4A9EFF" />
-                                            <Setter TargetName="Bd" Property="Background" Value="#203050" />
-                                        </Trigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#909090" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Width="132">
-                            <views:VideoThumbnail Width="128"
-                                                  Height="96"
-                                                  FilePath="{Binding FilePath}" />
-                            <TextBlock Margin="0,4,0,0"
-                                       Foreground="#D0D0D0"
-                                       Text="{Binding DisplayName}"
-                                       TextTrimming="CharacterEllipsis"
-                                       TextWrapping="Wrap"
-                                       ToolTip="{Binding FilePath}" />
-                        </StackPanel>
+                        <CheckBox Style="{StaticResource TagChip}"
+                                  IsChecked="{Binding IsVisible}"
+                                  AutomationProperties.Name="{Binding Name}"
+                                  ToolTip="Click to show or hide. Right-click to show only this one.">
+                            <CheckBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Command="{Binding ShowOnlyCommand}">
+                                        <MenuItem.Header>
+                                            <TextBlock Text="{Binding Name, StringFormat=Show only {0}}" />
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    <MenuItem Header="Show all" Command="{Binding ShowAllCommand}" />
+                                </ContextMenu>
+                            </CheckBox.ContextMenu>
+                        </CheckBox>
                     </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </Grid>
-    </Border>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DockPanel>
+
+        <ItemsControl Grid.Row="3"
+                      Margin="0,4,0,0"
+                      Style="{StaticResource GalleryList}"
+                      ItemsSource="{Binding Videos}">
+            <ItemsControl.GroupStyle>
+                <StaticResource ResourceKey="DayGroupStyle" />
+            </ItemsControl.GroupStyle>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type viewModels:SourceVideoViewModel}">
+                    <Border Background="{Binding Tag.Tint}" Style="{StaticResource GalleryRow}">
+                        <Border.InputBindings>
+                            <MouseBinding Command="{Binding OpenInEditorCommand}" Gesture="LeftDoubleClick" />
+                        </Border.InputBindings>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Background="{Binding Tag.Accent}" CornerRadius="4,0,0,4" />
+                            <views:VideoThumbnail Grid.Column="1"
+                                                  Width="128"
+                                                  Height="72"
+                                                  Margin="6"
+                                                  FilePath="{Binding FilePath}"
+                                                  Stamp="{Binding LastWriteTimeUtc}" />
+                            <StackPanel Grid.Column="2"
+                                        Margin="4,6,10,6"
+                                        VerticalAlignment="Center">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right"
+                                               VerticalAlignment="Center"
+                                               Style="{StaticResource Caption}"
+                                               Text="{Binding SizeText}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding TimeText}"
+                                                   ToolTip="{Binding TimestampText}" />
+                                        <Border Style="{StaticResource OpenBadge}">
+                                            <TextBlock Text="In editor" />
+                                        </Border>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Margin="0,2,0,0"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Tag.Accent}"
+                                           Text="{Binding Tag.Name}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Margin="0,2,0,0"
+                                           FontSize="11"
+                                           Style="{StaticResource Caption}"
+                                           Text="{Binding FileName}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding FilePath}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Grid.Row="3">
+            <StackPanel.Style>
+                <Style TargetType="StackPanel" BasedOn="{StaticResource EmptyState}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding State}" Value="{x:Static viewModels:SourceGalleryState.NoFolders}">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
+            <TextBlock Style="{StaticResource EmptyTitle}" Text="Where do your recordings live?" />
+            <TextBlock Style="{StaticResource EmptyBody}"
+                       Text="Add the folder your recorder saves to, or drop it here. Each subfolder, like one per game, becomes a tag." />
+            <Button HorizontalAlignment="Center"
+                    Style="{StaticResource AccentButton}"
+                    Command="{Binding BrowseFoldersCommand}"
+                    Content="Add folder…" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3">
+            <StackPanel.Style>
+                <Style TargetType="StackPanel" BasedOn="{StaticResource EmptyState}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding State}" Value="{x:Static viewModels:SourceGalleryState.NoVideos}">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
+            <TextBlock Style="{StaticResource EmptyTitle}" Text="No videos found" />
+            <TextBlock Style="{StaticResource EmptyBody}"
+                       Text="New recordings in your source folders show up here as soon as they are saved." />
+            <Button HorizontalAlignment="Center"
+                    Command="{Binding BrowseFoldersCommand}"
+                    Content="Add folder…" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3">
+            <StackPanel.Style>
+                <Style TargetType="StackPanel" BasedOn="{StaticResource EmptyState}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding State}" Value="{x:Static viewModels:SourceGalleryState.AllHidden}">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
+            <TextBlock Style="{StaticResource EmptyTitle}" Text="Every tag is hidden" />
+            <TextBlock Style="{StaticResource EmptyBody}" Text="Turn a tag back on above to see its videos." />
+            <Button HorizontalAlignment="Center"
+                    Command="{Binding ShowAllTagsCommand}"
+                    Content="Show all" />
+        </StackPanel>
+    </Grid>
 </UserControl>

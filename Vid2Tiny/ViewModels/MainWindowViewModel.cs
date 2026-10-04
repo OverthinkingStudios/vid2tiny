@@ -2,6 +2,7 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.IO;
+using Microsoft.Win32;
 using Vid2Tiny.Models;
 using Vid2Tiny.Services;
 
@@ -23,6 +24,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string outputFileName = "clip.mp4";
+
+    [ObservableProperty]
+    private string exportStatus = string.Empty;
 
     public PreviewViewModel Preview { get; }
 
@@ -58,25 +62,26 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OutputGallery = new OutputGalleryViewModel(galleryService, logService);
         Log = new LogViewModel(logService);
 
-        SourceGallery.MediaSelected += item => _ = LoadVideoAsync(item.FilePath);
+        SourceGallery.OpenRequested += path => _ = LoadVideoAsync(path);
+        OutputGallery.OpenRequested += path => _ = LoadVideoAsync(path);
         Preview.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(PreviewViewModel.HasVideo))
             {
                 ConvertCommand.NotifyCanExecuteChanged();
             }
+            else if (args.PropertyName == nameof(PreviewViewModel.LoadedFilePath))
+            {
+                SourceGallery.OpenedFilePath = Preview.LoadedFilePath;
+                OutputGallery.OpenedFilePath = Preview.LoadedFilePath;
+            }
         };
     }
 
     public async Task InitializeAsync()
     {
-        foreach (var folder in _settings.SourceFolders.Where(Directory.Exists))
-        {
-            SourceGallery.SourceFolders.Add(folder);
-        }
-
         OutputFolder = string.IsNullOrWhiteSpace(_settings.OutputFolder)
-            ? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "vid2tiny")
             : _settings.OutputFolder;
 
         OutputGallery.OutputFolder = OutputFolder;
@@ -92,7 +97,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _logService.Add(LogCategory.Info, "Vid2Tiny started.");
 
-        await SourceGallery.InitializeAsync();
+        await SourceGallery.InitializeAsync(_settings.SourceFolders, _settings.HiddenTags, _settings.TagColors);
+        if (SourceGallery.Newest is { } newest)
+        {
+            await LoadVideoAsync(newest.FilePath);
+        }
     }
 
     [RelayCommand]
@@ -138,6 +147,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         Directory.CreateDirectory(OutputFolder);
 
         IsBusy = true;
+        ExportStatus = "Converting…";
         ConvertCommand.NotifyCanExecuteChanged();
 
         var outputPath = Path.Combine(OutputFolder, SanitizeOutputFileName(OutputFileName));
@@ -155,16 +165,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             if (exitCode == 0)
             {
                 _logService.Add(LogCategory.Info, $"Saved output: {outputPath}");
+                ExportStatus = $"Saved {Path.GetFileName(outputPath)}";
                 await OutputGallery.RefreshCommand.ExecuteAsync(null);
             }
             else
             {
                 _logService.Add(LogCategory.Error, $"ffmpeg exited with code {exitCode}");
+                ExportStatus = "Conversion failed, see the log for details";
             }
         }
         catch (Exception ex)
         {
             _logService.Add(LogCategory.Error, $"ffmpeg execution failed: {ex.Message}");
+            ExportStatus = "Conversion failed, see the log for details";
         }
         finally
         {
@@ -177,6 +190,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public async Task RefreshSourceAsync()
     {
         await SourceGallery.RefreshCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
+    private void BrowseOutputFolder()
+    {
+        var dialog = new OpenFolderDialog { Title = "Choose output folder" };
+        if (Directory.Exists(OutputFolder))
+        {
+            dialog.InitialDirectory = OutputFolder;
+        }
+
+        if (dialog.ShowDialog() == true)
+        {
+            OutputFolder = dialog.FolderName;
+        }
     }
 
     [RelayCommand]
@@ -213,20 +241,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnOutputFolderChanged(string value)
     {
         OutputGallery.OutputFolder = value;
+        SourceGallery.ExcludedFolder = value;
     }
 
     public void PersistSettings()
     {
         try
         {
-            _settings.SourceFolders = SourceGallery.SourceFolders.ToList();
-            _settings.OutputFolder = OutputFolder;
-            _settings.LastPresetId = EncodeOptions.SelectedPreset?.Id ?? "balanced";
-            _settings.LastMuteAudio = EncodeOptions.MuteAudio;
-            _settings.LastCrf = EncodeOptions.Crf;
-            _settings.LastEncoderPreset = EncodeOptions.EncoderPreset;
-            _settings.LastScaleWidth = EncodeOptions.ScaleWidth;
-            _settings.LastScaleHeight = EncodeOptions.ScaleHeight;
+            CaptureSettings();
             _settingsService.Save(_settings);
         }
         catch (Exception ex)
@@ -237,7 +259,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public async Task PersistSettingsAsync()
     {
+        CaptureSettings();
+        await _settingsService.SaveAsync(_settings);
+    }
+
+    private void CaptureSettings()
+    {
         _settings.SourceFolders = SourceGallery.SourceFolders.ToList();
+        _settings.HiddenTags = SourceGallery.HiddenTags.ToList();
+        _settings.TagColors = SourceGallery.TagColors;
         _settings.OutputFolder = OutputFolder;
         _settings.LastPresetId = EncodeOptions.SelectedPreset?.Id ?? "balanced";
         _settings.LastMuteAudio = EncodeOptions.MuteAudio;
@@ -245,8 +275,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _settings.LastEncoderPreset = EncodeOptions.EncoderPreset;
         _settings.LastScaleWidth = EncodeOptions.ScaleWidth;
         _settings.LastScaleHeight = EncodeOptions.ScaleHeight;
-
-        await _settingsService.SaveAsync(_settings);
     }
 
     private bool CanConvert() => !IsBusy && Preview.HasVideo;

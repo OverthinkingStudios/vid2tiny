@@ -4,67 +4,92 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:views="clr-namespace:Vid2Tiny.Views"
+             xmlns:viewModels="clr-namespace:Vid2Tiny.ViewModels"
              mc:Ignorable="d"
-             d:DesignHeight="300"
-             d:DesignWidth="280">
-    <Border Margin="8"
-            Padding="8"
-            BorderBrush="#505050"
-            BorderThickness="1">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+             d:DesignHeight="600"
+             d:DesignWidth="420">
+    <UserControl.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+    </UserControl.InputBindings>
 
-            <TextBlock FontWeight="Bold" Text="Output Gallery" />
-            <ListBox Grid.Row="1"
-                     Margin="0,8,0,0"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     ItemsSource="{Binding Items}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="4" />
-                        <Setter Property="Margin" Value="2" />
-                        <Setter Property="VerticalContentAlignment" Value="Top" />
-                        <Setter Property="Background" Value="Transparent" />
-                        <Setter Property="BorderThickness" Value="0" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <Border Padding="{TemplateBinding Padding}"
-                                            Background="Transparent"
-                                            BorderThickness="0">
-                                        <ContentPresenter />
-                                    </Border>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Width="132">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel>
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource ToolButton}"
+                    Command="{Binding RefreshCommand}"
+                    ToolTip="Rescan output folder (F5)">
+                <TextBlock Style="{StaticResource Icon}" Text="&#xE72C;" />
+            </Button>
+            <TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource Caption}"
+                       Text="{Binding Summary}" />
+        </DockPanel>
+
+        <ItemsControl Grid.Row="1"
+                      Margin="0,4,0,0"
+                      Style="{StaticResource GalleryList}"
+                      ItemsSource="{Binding Items}">
+            <ItemsControl.GroupStyle>
+                <StaticResource ResourceKey="DayGroupStyle" />
+            </ItemsControl.GroupStyle>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type viewModels:FileItemViewModel}">
+                    <Border Style="{StaticResource GalleryRow}">
+                        <Border.InputBindings>
+                            <MouseBinding Command="{Binding OpenInEditorCommand}" Gesture="LeftDoubleClick" />
+                        </Border.InputBindings>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                             <views:VideoThumbnail Width="128"
-                                                  Height="96"
-                                                  FilePath="{Binding FilePath}" />
-                            <TextBlock Margin="0,4,0,0"
-                                       Foreground="#D0D0D0"
-                                       Text="{Binding DisplayName}"
-                                       TextTrimming="CharacterEllipsis"
-                                       TextWrapping="Wrap"
-                                       ToolTip="{Binding FilePath}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </Grid>
-    </Border>
+                                                  Height="72"
+                                                  Margin="6"
+                                                  FilePath="{Binding FilePath}"
+                                                  Stamp="{Binding LastWriteTimeUtc}" />
+                            <StackPanel Grid.Column="1"
+                                        Margin="4,6,10,6"
+                                        VerticalAlignment="Center">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right"
+                                               VerticalAlignment="Center"
+                                               Style="{StaticResource Caption}"
+                                               Text="{Binding SizeText}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding TimeText}"
+                                                   ToolTip="{Binding TimestampText}" />
+                                        <Border Style="{StaticResource OpenBadge}">
+                                            <TextBlock Text="In editor" />
+                                        </Border>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Margin="0,4,0,0"
+                                           Text="{Binding FileName}"
+                                           TextTrimming="CharacterEllipsis"
+                                           TextWrapping="Wrap"
+                                           MaxHeight="36"
+                                           ToolTip="{Binding FilePath}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Grid.Row="1"
+                    Style="{StaticResource EmptyState}"
+                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Style="{StaticResource EmptyTitle}" Text="No clips yet" />
+            <TextBlock Style="{StaticResource EmptyBody}"
+                       Text="Converted clips land here. Drag one into Discord, a chat or Explorer to share it." />
+        </StackPanel>
+    </Grid>
 </UserControl>

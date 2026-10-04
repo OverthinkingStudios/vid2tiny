@@ -1,0 +1,109 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:views="clr-namespace:Vid2Tiny.Views">
+
+    <views:RelativeDayConverter x:Key="RelativeDay" />
+
+    <Style x:Key="GalleryList" TargetType="ItemsControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="True" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer CanContentScroll="True"
+                                  Focusable="False"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsPresenter />
+                    </ScrollViewer>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <GroupStyle x:Key="DayGroupStyle">
+        <GroupStyle.Panel>
+            <ItemsPanelTemplate>
+                <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+        </GroupStyle.Panel>
+        <GroupStyle.HeaderTemplate>
+            <DataTemplate>
+                <TextBlock Margin="2,10,0,6"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           Text="{Binding Name, Converter={StaticResource RelativeDay}}" />
+            </DataTemplate>
+        </GroupStyle.HeaderTemplate>
+    </GroupStyle>
+
+    <ContextMenu x:Key="FileItemMenu"
+                 x:Shared="False"
+                 DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+        <MenuItem Command="{Binding OpenInEditorCommand}" FontWeight="SemiBold" Header="Open in editor" />
+        <Separator Margin="4" Background="{StaticResource Brush.CardBorder}" />
+        <MenuItem Command="{Binding ShowInExplorerCommand}" Header="Show in Explorer" />
+        <MenuItem Command="{Binding OpenExternallyCommand}" Header="Open in default player" />
+        <MenuItem Command="{Binding CopyPathCommand}" Header="Copy path" />
+    </ContextMenu>
+
+    <Style x:Key="GalleryRow" TargetType="Border">
+        <Setter Property="Margin" Value="0,0,4,4" />
+        <Setter Property="Background" Value="{StaticResource Brush.Subtle}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="ContextMenu" Value="{StaticResource FileItemMenu}" />
+        <Setter Property="views:FileDrag.Path" Value="{Binding FilePath}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="#C4C4C4" />
+            </Trigger>
+            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="OpenBadge" TargetType="Border">
+        <Setter Property="Margin" Value="8,0,0,0" />
+        <Setter Property="Padding" Value="6,1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Visibility" Value="{Binding IsOpen, Converter={StaticResource BoolToVisibility}}" />
+        <Setter Property="TextElement.FontSize" Value="11" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.TextOnAccent}" />
+    </Style>
+
+    <Style x:Key="EmptyState" TargetType="StackPanel">
+        <Setter Property="MaxWidth" Value="280" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Visibility" Value="Collapsed" />
+    </Style>
+
+    <Style x:Key="EmptyTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="EmptyBody" TargetType="TextBlock">
+        <Setter Property="Margin" Value="0,6,0,14" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+</ResourceDictionary>

@@ -4,41 +4,53 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="300"
-             d:DesignWidth="260">
-    <Border Margin="0"
-            Padding="8"
-            BorderBrush="#505050"
-            BorderThickness="1">
-        <StackPanel Orientation="Vertical">
-            <TextBlock FontWeight="Bold" Text="FFmpeg Options" Margin="3" />
-            <StackPanel Orientation="Horizontal">
-            <StackPanel Margin="3">
-                
-                <TextBlock Margin="3" Text="Preset" />
-                <ComboBox ItemsSource="{Binding Presets}"
-                        SelectedItem="{Binding SelectedPreset}"
-                        DisplayMemberPath="Name" />
-                <TextBlock Margin="3"
-                        Foreground="#707070"
-                        Text="{Binding SelectedPreset.Description}" />
+             d:DesignHeight="200"
+             d:DesignWidth="420">
+    <StackPanel>
+        <TextBlock Margin="0,0,0,12" Style="{StaticResource SectionTitle}" Text="Encoding" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-                <CheckBox Margin="3"
-                        Content="Mute Audio"
-                        IsChecked="{Binding MuteAudio}" />
+            <StackPanel>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Preset" />
+                <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Margin="0,6,0,0"
+                           Style="{StaticResource Caption}"
+                           Text="{Binding SelectedPreset.Description}"
+                           TextWrapping="Wrap" />
+                <CheckBox Margin="0,14,0,0"
+                          Content="Mute audio"
+                          IsChecked="{Binding MuteAudio}" />
             </StackPanel>
-            <StackPanel Margin="3">
 
-                <TextBlock Text="CRF (lower = better quality)" />
-                <Slider Minimum="16"
+            <StackPanel Grid.Column="2">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right"
+                               FontWeight="SemiBold"
+                               Text="{Binding Crf, StringFormat=CRF {0}}" />
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Quality" />
+                </DockPanel>
+                <Slider IsSnapToTickEnabled="True"
                         Maximum="36"
+                        Minimum="16"
                         TickFrequency="1"
-                        IsSnapToTickEnabled="True"
                         Value="{Binding Crf, Mode=TwoWay}" />
-                <TextBlock Margin="3"
-                        Text="{Binding Crf, StringFormat=CRF: {0}}" />
+                <DockPanel Margin="0,2,0,0">
+                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource Caption}" Text="Smaller file" />
+                    <TextBlock Style="{StaticResource Caption}" Text="Better quality" />
+                </DockPanel>
             </StackPanel>
-            </StackPanel>
+        </Grid>
 <!--
             <TextBlock Text="Encoder Preset (x264)" />
             <TextBox Margin="0,0,0,8"
@@ -50,6 +62,5 @@
             <TextBlock Text="Scale Height (blank keeps original/aspect)" />
             <TextBox Text="{Binding ScaleHeight, UpdateSourceTrigger=PropertyChanged}" />
 -->
-        </StackPanel>
-    </Border>
+    </StackPanel>
 </UserControl>

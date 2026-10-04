@@ -4,13 +4,30 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="120"
-             d:DesignWidth="160">
-    <Border Background="#2a2a2a"
-            BorderBrush="#505050"
-            BorderThickness="1"
-            CornerRadius="2">
+             d:DesignHeight="72"
+             d:DesignWidth="128">
+    <Grid Background="#262626" ClipToBounds="True">
+        <TextBlock x:Name="Placeholder"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontFamily="Segoe MDL2 Assets"
+                   FontSize="20"
+                   Foreground="#5A5A5A"
+                   Text="&#xE714;" />
         <Image x:Name="PreviewImage"
+               RenderOptions.BitmapScalingMode="HighQuality"
                Stretch="UniformToFill" />
-    </Border>
+        <Border x:Name="DurationBadge"
+                Margin="4"
+                Padding="4,0,4,1"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Background="#CC000000"
+                CornerRadius="2"
+                Visibility="Collapsed">
+            <TextBlock x:Name="DurationText"
+                       FontSize="11"
+                       Foreground="White" />
+        </Border>
+    </Grid>
 </UserControl>

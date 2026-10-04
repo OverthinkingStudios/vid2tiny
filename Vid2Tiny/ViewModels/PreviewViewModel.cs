@@ -1,3 +1,4 @@
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -6,6 +7,7 @@ namespace Vid2Tiny.ViewModels;
 public partial class PreviewViewModel : ObservableObject
 {
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LoadedFileName))]
     private string loadedFilePath = string.Empty;
 
     [ObservableProperty]
@@ -21,9 +23,11 @@ public partial class PreviewViewModel : ObservableObject
     private double durationSeconds;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ClipSeconds))]
     private double startSeconds;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ClipSeconds))]
     private double endSeconds;
 
     [ObservableProperty]
@@ -43,6 +47,10 @@ public partial class PreviewViewModel : ObservableObject
 
     [ObservableProperty]
     private double cropHeightNormalized = 1;
+
+    public string LoadedFileName => Path.GetFileName(LoadedFilePath);
+
+    public double ClipSeconds => Math.Max(0, EndSeconds - StartSeconds);
 
     public event Action? PlaybackToggled;
 

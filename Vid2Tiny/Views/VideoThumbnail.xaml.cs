@@ -1,7 +1,5 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
 using Vid2Tiny.Infrastructure;
 
 namespace Vid2Tiny.Views;
@@ -12,13 +10,20 @@ public partial class VideoThumbnail : UserControl
         nameof(FilePath),
         typeof(string),
         typeof(VideoThumbnail),
-        new PropertyMetadata(null, OnFilePathChanged));
+        new PropertyMetadata(null, OnSourceChanged));
+
+    public static readonly DependencyProperty StampProperty = DependencyProperty.Register(
+        nameof(Stamp),
+        typeof(DateTime),
+        typeof(VideoThumbnail),
+        new PropertyMetadata(default(DateTime), OnSourceChanged));
 
     private CancellationTokenSource? _loadCts;
 
     public VideoThumbnail()
     {
         InitializeComponent();
+        Loaded += (_, _) => Reload();
         Unloaded += (_, _) => _loadCts?.Cancel();
     }
 
@@ -28,42 +33,61 @@ public partial class VideoThumbnail : UserControl
         set => SetValue(FilePathProperty, value);
     }
 
-    private static void OnFilePathChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    public DateTime Stamp
     {
-        ((VideoThumbnail)d).LoadThumbnail();
+        get => (DateTime)GetValue(StampProperty);
+        set => SetValue(StampProperty, value);
     }
 
-    private async void LoadThumbnail()
+    private static void OnSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var thumbnail = (VideoThumbnail)d;
+        if (thumbnail.IsLoaded)
+        {
+            thumbnail.Reload();
+        }
+    }
+
+    private async void Reload()
     {
         _loadCts?.Cancel();
-        _loadCts = new CancellationTokenSource();
-        var token = _loadCts.Token;
-
-        PreviewImage.Source = null;
+        _loadCts = null;
 
         var path = FilePath;
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        if (string.IsNullOrEmpty(path))
         {
+            Show(null);
             return;
         }
 
+        if (ShellMediaLoader.TryGetCached(path, Stamp, out var cached))
+        {
+            Show(cached);
+            return;
+        }
+
+        Show(null);
+        var cts = _loadCts = new CancellationTokenSource();
         try
         {
-            // Shell COM (IShellItemImageFactory) must run on an STA thread; WPF's dispatcher is STA.
-            BitmapSource? bmp = await Dispatcher.InvokeAsync(
-                () => ShellThumbnailLoader.Load(path, 320, 240),
-                System.Windows.Threading.DispatcherPriority.Background);
-
-            if (token.IsCancellationRequested || bmp is null)
+            var media = await ShellMediaLoader.LoadAsync(path, Stamp, cts.Token);
+            if (!cts.IsCancellationRequested)
             {
-                return;
+                Show(media);
             }
-
-            PreviewImage.Source = bmp;
         }
         catch (OperationCanceledException)
         {
-            // ignored
         }
+    }
+
+    private void Show(ShellMedia? media)
+    {
+        PreviewImage.Source = media?.Thumbnail;
+        Placeholder.Visibility = media?.Thumbnail is null ? Visibility.Visible : Visibility.Collapsed;
+        DurationBadge.Visibility = media?.Duration is null ? Visibility.Collapsed : Visibility.Visible;
+        DurationText.Text = media?.Duration is { } duration
+            ? duration.ToString(duration.TotalHours >= 1 ? @"h\:mm\:ss" : @"m\:ss")
+            : null;
     }
 }

@@ -1,91 +1,348 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.IO;
-using System.Windows;
+using System.Windows.Data;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
+using Vid2Tiny.Infrastructure;
 using Vid2Tiny.Models;
 using Vid2Tiny.Services;
 
 namespace Vid2Tiny.ViewModels;
 
+public enum SourceGalleryState
+{
+    Ready,
+    NoFolders,
+    NoVideos,
+    AllHidden
+}
+
 public partial class SourceGalleryViewModel : ObservableObject, IDisposable
 {
+    private static readonly TimeSpan RefreshDelay = TimeSpan.FromMilliseconds(750);
+
     private readonly GalleryService _galleryService;
     private readonly LogService _logService;
+    private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+    private readonly ObservableCollection<SourceVideoViewModel> _videos = [];
+    private readonly Dictionary<string, SourceTagViewModel> _tagsByName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _hiddenTags = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<FileSystemWatcher> _watchers = [];
-    private CancellationTokenSource? _debounceCts;
     private CancellationTokenSource? _refreshCts;
-    private System.Threading.Timer? _pollTimer;
+    private string? _excludedPath;
+    private int _refreshQueued;
+    private bool _changingTagsInBulk;
     private bool _disposed;
 
-    public ObservableCollection<string> SourceFolders { get; } = [];
-
-    public ObservableCollection<MediaItem> Items { get; } = [];
+    [ObservableProperty]
+    private string? excludedFolder;
 
     [ObservableProperty]
-    private string newSourceFolder = string.Empty;
+    private string? openedFilePath;
 
     [ObservableProperty]
-    private MediaItem? selectedItem;
+    private bool isFolderPanelOpen;
 
     [ObservableProperty]
-    private bool showOptions;
+    private SourceGalleryState state = SourceGalleryState.NoFolders;
 
-    public event Action<MediaItem>? MediaSelected;
+    [ObservableProperty]
+    private string summary = string.Empty;
+
+    [ObservableProperty]
+    private bool hasHiddenTags;
+
+    public event Action<string>? OpenRequested;
 
     public SourceGalleryViewModel(GalleryService galleryService, LogService logService)
     {
         _galleryService = galleryService;
         _logService = logService;
-        SourceFolders.CollectionChanged += OnSourceFoldersChanged;
-        _pollTimer = new System.Threading.Timer(_ => QueueDebouncedRefreshFromTimer(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
+        Videos = FileItemViewModel.CreateDayGroupedView(_videos);
+        Videos.Filter = item => ((SourceVideoViewModel)item).Tag.IsVisible;
     }
 
-    internal async Task InitializeAsync()
+    public ObservableCollection<string> SourceFolders { get; } = [];
+
+    public ObservableCollection<SourceTagViewModel> Tags { get; } = [];
+
+    public ListCollectionView Videos { get; }
+
+    public Dictionary<string, int> TagColors { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public IEnumerable<string> HiddenTags => _hiddenTags;
+
+    public SourceVideoViewModel? Newest => Videos.OfType<SourceVideoViewModel>().FirstOrDefault();
+
+    internal async Task InitializeAsync(IEnumerable<string> folders, IEnumerable<string> hiddenTags, IReadOnlyDictionary<string, int> tagColors)
     {
-        RebuildWatchers();
-        await Refresh();
-        if (Items.Any())
+        foreach (var (tag, colorIndex) in tagColors)
         {
-            SelectedItem = Items.First();
+            TagColors.TryAdd(tag, colorIndex);
         }
+
+        _hiddenTags.UnionWith(hiddenTags);
+        foreach (var folder in folders)
+        {
+            AddFolder(folder);
+        }
+
+        SourceFolders.CollectionChanged += OnSourceFoldersChanged;
+        RebuildWatchers();
+        await RefreshAsync();
+    }
+
+    public void AddFolders(IEnumerable<string> folders)
+    {
+        foreach (var folder in folders)
+        {
+            if (AddFolder(folder) is { } added)
+            {
+                _logService.Add(LogCategory.Info, $"Added source folder: {added}");
+            }
+        }
+    }
+
+    internal void ShowOnlyTag(SourceTagViewModel tag) => SetTagVisibility(t => t == tag);
+
+    [RelayCommand]
+    private void BrowseFolders()
+    {
+        var dialog = new OpenFolderDialog { Title = "Add source folders", Multiselect = true };
+        if (dialog.ShowDialog() == true)
+        {
+            AddFolders(dialog.FolderNames);
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveFolder(string folder)
+    {
+        SourceFolders.Remove(folder);
+    }
+
+    [RelayCommand]
+    internal void ShowAllTags() => SetTagVisibility(_ => true);
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task RefreshAsync()
+    {
+        _refreshCts?.Cancel();
+        var cts = _refreshCts = new CancellationTokenSource();
+
+        try
+        {
+            var found = await _galleryService.FindSourceVideosAsync(SourceFolders.ToList(), _excludedPath, cts.Token);
+            if (!cts.IsCancellationRequested)
+            {
+                Apply(found);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logService.Add(LogCategory.Error, $"Failed scanning source folders: {ex.Message}");
+        }
+    }
+
+    private string? AddFolder(string folder)
+    {
+        if (PathUtil.NormalizeFolder(folder) is not { } path)
+        {
+            return null;
+        }
+
+        if (SourceFolders.FirstOrDefault(root => PathUtil.IsSameOrInside(path, root)) is { } covering)
+        {
+            _logService.Add(LogCategory.Info, $"{path} is already included through {covering}");
+            return null;
+        }
+
+        foreach (var nested in SourceFolders.Where(root => PathUtil.IsSameOrInside(root, path)).ToList())
+        {
+            SourceFolders.Remove(nested);
+        }
+
+        SourceFolders.Add(path);
+        return path;
+    }
+
+    private void Apply(IReadOnlyList<SourceVideo> found)
+    {
+        SyncTags(found);
+
+        var existing = _videos.ToDictionary(v => v.FilePath, StringComparer.OrdinalIgnoreCase);
+        var desired = new List<SourceVideoViewModel>(found.Count);
+        foreach (var video in found)
+        {
+            var tag = _tagsByName[video.Tag];
+            if (existing.TryGetValue(video.FilePath, out var item) && item.Tag == tag && item.TimestampUtc == video.CreationTimeUtc)
+            {
+                item.Update(video.LastWriteTimeUtc, video.SizeBytes);
+            }
+            else
+            {
+                item = new SourceVideoViewModel(video, tag, _logService, RequestOpen) { IsOpen = IsOpened(video.FilePath) };
+            }
+
+            desired.Add(item);
+        }
+
+        CollectionSync.Apply(_videos, desired);
+        UpdateSummary();
+    }
+
+    private void SyncTags(IReadOnlyList<SourceVideo> found)
+    {
+        var counts = found
+            .GroupBy(v => v.Tag, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var stale in Tags.Where(t => !counts.ContainsKey(t.Name)).ToList())
+        {
+            stale.PropertyChanged -= OnTagPropertyChanged;
+            Tags.Remove(stale);
+            _tagsByName.Remove(stale.Name);
+        }
+
+        foreach (var (name, count) in counts)
+        {
+            if (!_tagsByName.TryGetValue(name, out var tag))
+            {
+                tag = new SourceTagViewModel(this, name, ColorIndexFor(name), !_hiddenTags.Contains(name));
+                tag.PropertyChanged += OnTagPropertyChanged;
+                _tagsByName[name] = tag;
+                var index = Tags.TakeWhile(t => string.Compare(t.Name, name, StringComparison.CurrentCultureIgnoreCase) < 0).Count();
+                Tags.Insert(index, tag);
+            }
+
+            tag.Count = count;
+        }
+    }
+
+    private int ColorIndexFor(string tag)
+    {
+        if (!TagColors.TryGetValue(tag, out var index))
+        {
+            index = TagColors.Count == 0 ? 0 : TagColors.Values.Max() + 1;
+            TagColors[tag] = index;
+        }
+
+        return index;
+    }
+
+    private void OnTagPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SourceTagViewModel.IsVisible) || sender is not SourceTagViewModel tag)
+        {
+            return;
+        }
+
+        if (tag.IsVisible)
+        {
+            _hiddenTags.Remove(tag.Name);
+        }
+        else
+        {
+            _hiddenTags.Add(tag.Name);
+        }
+
+        if (!_changingTagsInBulk)
+        {
+            ApplyTagFilter();
+        }
+    }
+
+    private void SetTagVisibility(Func<SourceTagViewModel, bool> isVisible)
+    {
+        _changingTagsInBulk = true;
+        try
+        {
+            foreach (var tag in Tags)
+            {
+                tag.IsVisible = isVisible(tag);
+            }
+        }
+        finally
+        {
+            _changingTagsInBulk = false;
+        }
+
+        ApplyTagFilter();
+    }
+
+    private void ApplyTagFilter()
+    {
+        Videos.Refresh();
+        UpdateSummary();
+    }
+
+    private void UpdateSummary()
+    {
+        var total = _videos.Count;
+        var visible = Videos.Count;
+
+        HasHiddenTags = Tags.Any(t => !t.IsVisible);
+        Summary = visible == total
+            ? Pluralize(total, "video")
+            : $"{visible} of {Pluralize(total, "video")}";
+        State = SourceFolders.Count == 0 ? SourceGalleryState.NoFolders
+            : total == 0 ? SourceGalleryState.NoVideos
+            : visible == 0 ? SourceGalleryState.AllHidden
+            : SourceGalleryState.Ready;
     }
 
     private void OnSourceFoldersChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         RebuildWatchers();
-        QueueDebouncedRefresh();
+        UpdateSummary();
+        QueueRefresh();
     }
+
+    partial void OnExcludedFolderChanged(string? value)
+    {
+        _excludedPath = PathUtil.NormalizeFolder(value);
+        QueueRefresh();
+    }
+
+    partial void OnOpenedFilePathChanged(string? value)
+    {
+        foreach (var video in _videos)
+        {
+            video.IsOpen = IsOpened(video.FilePath);
+        }
+    }
+
+    private bool IsOpened(string path) => string.Equals(path, OpenedFilePath, StringComparison.OrdinalIgnoreCase);
+
+    private void RequestOpen(FileItemViewModel item) => OpenRequested?.Invoke(item.FilePath);
 
     private void RebuildWatchers()
     {
-        foreach (var w in _watchers)
+        DisposeWatchers();
+
+        foreach (var folder in SourceFolders.Where(Directory.Exists))
         {
-            w.Dispose();
-        }
-
-        _watchers.Clear();
-
-        foreach (var folder in SourceFolders)
-        {
-            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-            {
-                continue;
-            }
-
             try
             {
                 var watcher = new FileSystemWatcher(folder)
                 {
-                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
-                    IncludeSubdirectories = false,
-                    EnableRaisingEvents = true
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size
                 };
-                watcher.Created += OnWatcherChanged;
-                watcher.Deleted += OnWatcherChanged;
-                watcher.Changed += OnWatcherChanged;
-                watcher.Renamed += OnWatcherRenamed;
+                watcher.Created += OnFolderContentChanged;
+                watcher.Deleted += OnFolderContentChanged;
+                watcher.Changed += OnFolderContentChanged;
+                watcher.Renamed += OnFolderContentChanged;
+                watcher.Error += (_, _) => QueueRefresh();
+                watcher.EnableRaisingEvents = true;
                 _watchers.Add(watcher);
             }
             catch (Exception ex)
@@ -95,126 +352,45 @@ public partial class SourceGalleryViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnWatcherChanged(object sender, FileSystemEventArgs e) => QueueDebouncedRefresh();
-
-    private void OnWatcherRenamed(object sender, RenamedEventArgs e) => QueueDebouncedRefresh();
-
-    private void QueueDebouncedRefreshFromTimer()
+    private void OnFolderContentChanged(object sender, FileSystemEventArgs e)
     {
-        if (_disposed)
+        if (_excludedPath is { } excluded && PathUtil.IsSameOrInside(e.FullPath, excluded))
         {
             return;
         }
 
-        Application.Current?.Dispatcher.BeginInvoke(QueueDebouncedRefresh);
+        QueueRefresh();
     }
 
-    private void QueueDebouncedRefresh()
+    private void QueueRefresh()
     {
-        if (_disposed)
+        if (_disposed || Interlocked.Exchange(ref _refreshQueued, 1) == 1)
         {
             return;
         }
 
-        _debounceCts?.Cancel();
-        _debounceCts = new CancellationTokenSource();
-        var token = _debounceCts.Token;
-        _ = Task.Run(async () =>
+        _dispatcher.InvokeAsync(async () =>
         {
-            try
+            await Task.Delay(RefreshDelay);
+            Volatile.Write(ref _refreshQueued, 0);
+            if (!_disposed)
             {
-                await Task.Delay(500, token).ConfigureAwait(false);
-                if (token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                await Application.Current!.Dispatcher.InvokeAsync(async () =>
-                {
-                    if (!_disposed)
-                    {
-                        await RefreshCommand.ExecuteAsync(null);
-                    }
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                // debounced
+                await RefreshAsync();
             }
         });
     }
 
-    [RelayCommand]
-    private void AddFolder()
+    private void DisposeWatchers()
     {
-        var folder = NewSourceFolder.Trim();
-        if (string.IsNullOrWhiteSpace(folder))
+        foreach (var watcher in _watchers)
         {
-            return;
+            watcher.Dispose();
         }
 
-        if (!Directory.Exists(folder))
-        {
-            _logService.Add(LogCategory.Warning, $"Source folder not found: {folder}");
-            return;
-        }
-
-        if (!SourceFolders.Contains(folder, StringComparer.OrdinalIgnoreCase))
-        {
-            SourceFolders.Add(folder);
-            _logService.Add(LogCategory.Info, $"Added source folder: {folder}");
-        }
-
-        NewSourceFolder = string.Empty;
-        _ = RefreshCommand.ExecuteAsync(null);
+        _watchers.Clear();
     }
 
-    [RelayCommand(CanExecute = nameof(CanRemoveFolder))]
-    private void RemoveFolder(string? folder)
-    {
-        if (string.IsNullOrWhiteSpace(folder))
-        {
-            return;
-        }
-
-        SourceFolders.Remove(folder);
-        _logService.Add(LogCategory.Info, $"Removed source folder: {folder}");
-        _ = RefreshCommand.ExecuteAsync(null);
-    }
-
-    [RelayCommand]
-    private async Task Refresh()
-    {
-        _refreshCts?.Cancel();
-        _refreshCts = new CancellationTokenSource();
-
-        try
-        {
-            var media = await _galleryService.GetRecentMediaAsync(SourceFolders, 300, _refreshCts.Token);
-            Items.Clear();
-            foreach (var item in media)
-            {
-                Items.Add(item);
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            _logService.Add(LogCategory.Error, $"Failed loading source gallery: {ex.Message}");
-        }
-    }
-
-    partial void OnSelectedItemChanged(MediaItem? value)
-    {
-        if (value is null)
-        {
-            return;
-        }
-
-        MediaSelected?.Invoke(value);
-    }
-
-    private bool CanRemoveFolder(string? folder) => !string.IsNullOrWhiteSpace(folder);
+    private static string Pluralize(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 
     public void Dispose()
     {
@@ -225,17 +401,8 @@ public partial class SourceGalleryViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         SourceFolders.CollectionChanged -= OnSourceFoldersChanged;
-        _pollTimer?.Dispose();
-        _pollTimer = null;
-        _debounceCts?.Cancel();
-        _debounceCts = null;
         _refreshCts?.Cancel();
-        foreach (var w in _watchers)
-        {
-            w.Dispose();
-        }
-
-        _watchers.Clear();
+        DisposeWatchers();
         GC.SuppressFinalize(this);
     }
 }

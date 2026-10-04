@@ -11,8 +11,12 @@ namespace Vid2Tiny.Views;
 
 public partial class PreviewView : UserControl
 {
+    private static readonly Color EditColor = Color.FromRgb(0xE8, 0x59, 0x0C);
+
     private readonly DispatcherTimer _positionTimer;
     private readonly Rectangle _cropRectangle;
+    private readonly Path _cropShade;
+    private readonly Rectangle _trimRange;
     private readonly Line _startMarkerLine;
     private readonly Line _endMarkerLine;
     private readonly TextBlock _debugTextBlock;
@@ -27,11 +31,17 @@ public partial class PreviewView : UserControl
     {
         InitializeComponent();
 
+        _cropShade = new Path
+        {
+            Fill = new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)),
+            IsHitTestVisible = false
+        };
+        OverlayCanvas.Children.Add(_cropShade);
+
         _cropRectangle = new Rectangle
         {
-            Stroke = Brushes.Orange,
+            Stroke = new SolidColorBrush(EditColor),
             StrokeThickness = 2,
-            Fill = new SolidColorBrush(Color.FromArgb(30, 255, 140, 0)),
             IsHitTestVisible = false
         };
         OverlayCanvas.Children.Add(_cropRectangle);
@@ -46,17 +56,27 @@ public partial class PreviewView : UserControl
         };
         OverlayCanvas.Children.Add(_debugTextBlock);
 
+        _trimRange = new Rectangle
+        {
+            Height = 10,
+            RadiusX = 2,
+            RadiusY = 2,
+            Fill = new SolidColorBrush(Color.FromArgb(0x48, EditColor.R, EditColor.G, EditColor.B))
+        };
+        Canvas.SetTop(_trimRange, 6);
         _startMarkerLine = new Line
         {
-            Stroke = Brushes.Lime,
+            Stroke = new SolidColorBrush(EditColor),
             StrokeThickness = 2,
-            X1 = 0, Y1 = 0, X2 = 0, Y2 = 24
+            Y1 = 2,
+            Y2 = 20
         };
         _endMarkerLine = new Line
         {
-            Stroke = Brushes.Red,
+            Stroke = new SolidColorBrush(EditColor),
             StrokeThickness = 2,
-            X1 = 0, Y1 = 0, X2 = 0, Y2 = 24
+            Y1 = 2,
+            Y2 = 20
         };
         _positionTimer = new DispatcherTimer
         {
@@ -73,6 +93,7 @@ public partial class PreviewView : UserControl
     {
         if (TimelineMarkersCanvas != null && !TimelineMarkersCanvas.Children.Contains(_startMarkerLine))
         {
+            TimelineMarkersCanvas.Children.Add(_trimRange);
             TimelineMarkersCanvas.Children.Add(_startMarkerLine);
             TimelineMarkersCanvas.Children.Add(_endMarkerLine);
         }
@@ -95,6 +116,7 @@ public partial class PreviewView : UserControl
             newVm.PlaybackToggled += OnPlaybackToggled;
             newVm.StepRequested += OnStepRequested;
             newVm.PropertyChanged += OnViewModelPropertyChanged;
+            OpenLoadedFile(newVm);
             DrawSelectionFromViewModel(newVm);
         }
     }
@@ -108,11 +130,7 @@ public partial class PreviewView : UserControl
 
         if (e.PropertyName == nameof(PreviewViewModel.LoadedFilePath))
         {
-            if (!string.IsNullOrWhiteSpace(ViewModel.LoadedFilePath))
-            {
-                VideoPlayer.Source = new Uri(ViewModel.LoadedFilePath);
-                VideoPlayer.Position = TimeSpan.Zero;
-            }
+            OpenLoadedFile(ViewModel);
         }
 
         if (e.PropertyName is nameof(PreviewViewModel.CropXNormalized) or nameof(PreviewViewModel.CropYNormalized) or nameof(PreviewViewModel.CropWidthNormalized) or nameof(PreviewViewModel.CropHeightNormalized))
@@ -123,6 +141,15 @@ public partial class PreviewView : UserControl
         if (e.PropertyName is nameof(PreviewViewModel.StartSeconds) or nameof(PreviewViewModel.EndSeconds) or nameof(PreviewViewModel.DurationSeconds))
         {
             UpdateTimelineMarkers();
+        }
+    }
+
+    private void OpenLoadedFile(PreviewViewModel vm)
+    {
+        if (!string.IsNullOrWhiteSpace(vm.LoadedFilePath))
+        {
+            VideoPlayer.Source = new Uri(vm.LoadedFilePath);
+            VideoPlayer.Position = TimeSpan.Zero;
         }
     }
 
@@ -233,6 +260,16 @@ public partial class PreviewView : UserControl
         }
     }
 
+    private void OnDragEnter(object sender, DragEventArgs e)
+    {
+        DropHighlight.Visibility = e.Data.GetDataPresent(DataFormats.FileDrop) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnDragLeave(object sender, DragEventArgs e)
+    {
+        DropHighlight.Visibility = Visibility.Collapsed;
+    }
+
     private void OnDragOver(object sender, DragEventArgs e)
     {
         e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
@@ -241,6 +278,7 @@ public partial class PreviewView : UserControl
 
     private async void OnDrop(object sender, DragEventArgs e)
     {
+        DropHighlight.Visibility = Visibility.Collapsed;
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] files || files.Length == 0)
         {
             return;
@@ -372,6 +410,11 @@ public partial class PreviewView : UserControl
         Canvas.SetTop(_cropRectangle, normalizedRect.Y);
         _cropRectangle.Width = normalizedRect.Width;
         _cropRectangle.Height = normalizedRect.Height;
+
+        var videoRect = GetVideoRectInCanvas();
+        var isFullFrame = normalizedRect.Width >= videoRect.Width - 1 && normalizedRect.Height >= videoRect.Height - 1;
+        _cropShade.Data = new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(videoRect), new RectangleGeometry(normalizedRect));
+        _cropShade.Visibility = _cropRectangle.Visibility = isFullFrame ? Visibility.Collapsed : Visibility.Visible;
         UpdateDebugText();
     }
 
@@ -439,22 +482,19 @@ public partial class PreviewView : UserControl
             return;
         }
 
-        var width = SliderContainer.ActualWidth;
+        var width = TimelineMarkersCanvas.ActualWidth;
         if (width <= 0 || ViewModel.DurationSeconds <= 0)
         {
             return;
         }
 
-        var startX = (ViewModel.StartSeconds / ViewModel.DurationSeconds) * width;
-        var endX = (ViewModel.EndSeconds / ViewModel.DurationSeconds) * width;
+        var startX = Math.Clamp(ViewModel.StartSeconds / ViewModel.DurationSeconds * width, 0, width);
+        var endX = Math.Clamp(ViewModel.EndSeconds / ViewModel.DurationSeconds * width, startX, width);
 
-        _startMarkerLine.X1 = _startMarkerLine.X2 = Math.Clamp(startX, 0, width);
-        _startMarkerLine.Y1 = 0;
-        _startMarkerLine.Y2 = TimelineMarkersCanvas.ActualHeight > 0 ? TimelineMarkersCanvas.ActualHeight : 24;
-
-        _endMarkerLine.X1 = _endMarkerLine.X2 = Math.Clamp(endX, 0, width);
-        _endMarkerLine.Y1 = 0;
-        _endMarkerLine.Y2 = _startMarkerLine.Y2;
+        _startMarkerLine.X1 = _startMarkerLine.X2 = startX;
+        _endMarkerLine.X1 = _endMarkerLine.X2 = endX;
+        Canvas.SetLeft(_trimRange, startX);
+        _trimRange.Width = endX - startX;
     }
 
     private Rect GetVideoRectInCanvas()
