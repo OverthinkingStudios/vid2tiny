@@ -18,6 +18,7 @@ namespace Vid2Tiny
             var processRunner = new ProcessRunner();
             var probeService = new MediaProbeService(processRunner);
             var ffmpegService = new FfmpegService(processRunner);
+            var sizeEstimator = new SizeEstimator(ffmpegService);
 
             var mainViewModel = new MainWindowViewModel(
                 settingsService,
@@ -25,6 +26,7 @@ namespace Vid2Tiny
                 galleryService,
                 probeService,
                 ffmpegService,
+                sizeEstimator,
                 logService);
 
             await mainViewModel.InitializeAsync();

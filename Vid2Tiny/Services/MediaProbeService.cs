@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Vid2Tiny.Infrastructure;
 using Vid2Tiny.Models;
 
@@ -9,7 +10,7 @@ public sealed class MediaProbeService(ProcessRunner processRunner)
     public async Task<VideoMetadata?> ProbeAsync(string filePath, CancellationToken cancellationToken = default)
     {
         var args =
-            $"-v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,avg_frame_rate:format=duration -of default=noprint_wrappers=1 \"{filePath}\"";
+            $"-v error -show_entries stream=codec_type,width,height,r_frame_rate,avg_frame_rate,bit_rate:format=duration,bit_rate -of json \"{filePath}\"";
 
         ProcessRunResult result;
         try
@@ -26,32 +27,47 @@ public sealed class MediaProbeService(ProcessRunner processRunner)
             return null;
         }
 
-        var values = result.StdOutLines
-            .Select(line => line.Split('=', 2))
-            .Where(pair => pair.Length == 2)
-            .GroupBy(pair => pair[0].Trim())
-            .ToDictionary(group => group.Key, group => group.First()[1].Trim());
+        try
+        {
+            using var json = JsonDocument.Parse(string.Join('\n', result.StdOutLines));
+            var streams = json.RootElement.GetProperty("streams").EnumerateArray().ToList();
+            var video = streams.FirstOrDefault(s => Text(s, "codec_type") == "video");
+            var audio = streams.FirstOrDefault(s => Text(s, "codec_type") == "audio");
+            if (video.ValueKind != JsonValueKind.Object ||
+                !json.RootElement.TryGetProperty("format", out var format) ||
+                Number(format, "duration") is not { } durationSeconds)
+            {
+                return null;
+            }
 
-        if (!values.TryGetValue("width", out var widthText) || !int.TryParse(widthText, out var width) ||
-            !values.TryGetValue("height", out var heightText) || !int.TryParse(heightText, out var height) ||
-            !values.TryGetValue("duration", out var durationText) ||
-            !double.TryParse(durationText, NumberStyles.Float, CultureInfo.InvariantCulture, out var durationSeconds))
+            var hasAudio = audio.ValueKind == JsonValueKind.Object;
+            var audioBitrate = hasAudio ? (long?)Number(audio, "bit_rate") : null;
+            var videoBitrate = (long?)Number(video, "bit_rate") ?? (long?)Number(format, "bit_rate") - (audioBitrate ?? 0);
+
+            return new VideoMetadata
+            {
+                Width = (int)(Number(video, "width") ?? 0),
+                Height = (int)(Number(video, "height") ?? 0),
+                Duration = TimeSpan.FromSeconds(Math.Max(0, durationSeconds)),
+                FrameRate = Rate(Text(video, "r_frame_rate")) is > 0 and var nominal ? nominal : Rate(Text(video, "avg_frame_rate")),
+                HasAudio = hasAudio,
+                VideoBitrate = videoBitrate,
+                AudioBitrate = audioBitrate
+            };
+        }
+        catch (JsonException)
         {
             return null;
         }
-
-        return new VideoMetadata
-        {
-            Width = width,
-            Height = height,
-            Duration = TimeSpan.FromSeconds(Math.Max(0, durationSeconds)),
-            FrameRate = ParseRate(values.GetValueOrDefault("r_frame_rate")) is > 0 and var nominal
-                ? nominal
-                : ParseRate(values.GetValueOrDefault("avg_frame_rate"))
-        };
     }
 
-    private static double ParseRate(string? rate)
+    private static string? Text(JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) ? value.ToString() : null;
+
+    private static double? Number(JsonElement element, string name) =>
+        double.TryParse(Text(element, name), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : null;
+
+    private static double Rate(string? rate)
     {
         var parts = rate?.Split('/');
         return parts is [var numerator, var denominator] &&

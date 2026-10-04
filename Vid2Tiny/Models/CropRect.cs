@@ -1,12 +1,3 @@
 namespace Vid2Tiny.Models;
 
-public sealed class CropRect
-{
-    public double X { get; set; }
-
-    public double Y { get; set; }
-
-    public double Width { get; set; }
-
-    public double Height { get; set; }
-}
+public sealed record CropRect(double X, double Y, double Width, double Height);

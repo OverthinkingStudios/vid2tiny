@@ -9,6 +9,7 @@ public sealed class ProcessRunner
         string arguments,
         Action<string>? onStdOut = null,
         Action<string>? onStdErr = null,
+        string? workingDirectory = null,
         CancellationToken cancellationToken = default)
     {
         var stdoutLines = new List<string>();
@@ -23,7 +24,8 @@ public sealed class ProcessRunner
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                WorkingDirectory = workingDirectory ?? string.Empty
             },
             EnableRaisingEvents = true
         };

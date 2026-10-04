@@ -1,70 +1,124 @@
-using System.Globalization;
-using System.Text;
+using System.IO;
 using Vid2Tiny.Infrastructure;
 using Vid2Tiny.Models;
+using static System.FormattableString;
 
 namespace Vid2Tiny.Services;
 
 public sealed class FfmpegService(ProcessRunner processRunner)
 {
-    public string BuildArguments(VideoJobParameters parameters)
+    // Relative on purpose: x265 takes the stats path inside -x265-params, where ':' separates options.
+    private const string PassLogName = "vid2tiny-pass";
+
+    private static IReadOnlyList<string> BuildPasses(VideoJobParameters job) =>
+        job.Plan is { Codec: not VideoCodec.Copy, VideoBitrate: not null }
+            ? [BuildArguments(job, 1), BuildArguments(job, 2)]
+            : [BuildArguments(job, null)];
+
+    public async Task<int> EncodeAsync(
+        VideoJobParameters job,
+        Action<string> onLog,
+        Action<int, int>? onPass = null,
+        CancellationToken cancellationToken = default)
     {
-        var builder = new StringBuilder();
-
-        builder.Append("-hide_banner -y ");
-        builder.AppendFormat(CultureInfo.InvariantCulture, "-ss {0:0.###} ", parameters.StartTime.TotalSeconds);
-        builder.AppendFormat(CultureInfo.InvariantCulture, "-to {0:0.###} ", parameters.EndTime.TotalSeconds);
-        builder.AppendFormat("-i \"{0}\" ", parameters.InputPath);
-
-        var filters = new List<string>();
-        if (parameters.Crop is not null)
+        var passes = BuildPasses(job);
+        var workDirectory = Directory.CreateTempSubdirectory("vid2tiny-");
+        try
         {
-            filters.Add(
-                FormattableString.Invariant(
-                    $"crop={Math.Round(parameters.Crop.Width)}:{Math.Round(parameters.Crop.Height)}:{Math.Round(parameters.Crop.X)}:{Math.Round(parameters.Crop.Y)}"));
+            for (var i = 0; i < passes.Count; i++)
+            {
+                onPass?.Invoke(i + 1, passes.Count);
+                onLog($"ffmpeg {passes[i]}");
+                var result = await processRunner.RunAsync(
+                    "ffmpeg",
+                    passes[i],
+                    onStdOut: onLog,
+                    onStdErr: onLog,
+                    workingDirectory: workDirectory.FullName,
+                    cancellationToken: cancellationToken);
+
+                if (result.ExitCode != 0)
+                {
+                    return result.ExitCode;
+                }
+            }
+
+            return 0;
         }
-
-        if (parameters.ScaleWidth is > 0 || parameters.ScaleHeight is > 0)
+        finally
         {
-            var width = parameters.ScaleWidth is > 0 ? parameters.ScaleWidth.Value.ToString(CultureInfo.InvariantCulture) : "-2";
-            var height = parameters.ScaleHeight is > 0 ? parameters.ScaleHeight.Value.ToString(CultureInfo.InvariantCulture) : "-2";
-            filters.Add($"scale={width}:{height}");
+            try
+            {
+                workDirectory.Delete(recursive: true);
+            }
+            catch (IOException)
+            {
+            }
         }
+    }
 
-        if (filters.Count > 0)
+    private static string BuildArguments(VideoJobParameters job, int? pass)
+    {
+        var (clip, plan, outputPath) = job;
+        var args = new List<string>
         {
-            builder.AppendFormat("-vf \"{0}\" ", string.Join(",", filters));
-        }
+            "-hide_banner -y",
+            Invariant($"-ss {clip.Start.TotalSeconds:0.###} -to {clip.End.TotalSeconds:0.###}"),
+            $"-i \"{clip.InputPath}\""
+        };
 
-        if (parameters.MuteAudio)
+        if (plan.Codec == VideoCodec.Copy)
         {
-            builder.Append("-an ");
+            args.Add("-c:v copy");
         }
         else
         {
-            builder.Append("-c:a aac -b:a 128k ");
+            var filters = Filters(clip, plan);
+            if (filters.Count > 0)
+            {
+                args.Add($"-vf \"{string.Join(',', filters)}\"");
+            }
+
+            args.Add(plan.Codec == VideoCodec.H265 ? "-c:v libx265 -tag:v hvc1" : "-c:v libx264");
+            args.Add($"-preset {plan.Preset} -pix_fmt yuv420p");
+            args.Add(plan.VideoBitrate is { } bitrate ? Invariant($"-b:v {bitrate / 1000}k") : Invariant($"-crf {plan.Crf}"));
+            if (pass is { } number)
+            {
+                args.Add(plan.Codec == VideoCodec.H265
+                    ? $"-x265-params pass={number}:stats={PassLogName}.log"
+                    : $"-pass {number} -passlogfile {PassLogName}");
+            }
         }
 
-        builder.AppendFormat(CultureInfo.InvariantCulture, "-c:v libx264 -preset {0} -crf {1} ", parameters.EncoderPreset, parameters.Crf);
-        builder.AppendFormat("\"{0}\"", parameters.OutputPath);
+        if (pass == 1)
+        {
+            args.Add("-an -f null NUL");
+            return string.Join(' ', args);
+        }
 
-        return builder.ToString();
+        args.Add(plan.MuteAudio ? "-an" : plan.AudioKbps > 0 ? Invariant($"-c:a aac -b:a {plan.AudioKbps}k") : "-c:a copy");
+        args.Add($"-movflags +faststart \"{outputPath}\"");
+        return string.Join(' ', args);
     }
 
-    public async Task<int> ExecuteAsync(
-        VideoJobParameters parameters,
-        Action<string> onOutput,
-        Action<string> onError,
-        CancellationToken cancellationToken = default)
+    private static List<string> Filters(Clip clip, EncodePlan plan)
     {
-        var args = BuildArguments(parameters);
-        var result = await processRunner.RunAsync(
-            "ffmpeg",
-            args,
-            onStdOut: onOutput,
-            onStdErr: onError,
-            cancellationToken: cancellationToken);
+        var filters = new List<string>();
+        if (clip.Crop is { } crop)
+        {
+            filters.Add(Invariant($"crop={clip.Width}:{clip.Height}:{Math.Round(crop.X)}:{Math.Round(crop.Y)}"));
+        }
 
-        return result.ExitCode;
+        if (plan.ScaleToHeight is { } height)
+        {
+            filters.Add(Invariant($"scale=-2:{height}"));
+        }
+
+        if (plan.FrameRateCap is { } frameRate)
+        {
+            filters.Add(Invariant($"fps={frameRate:0.###}"));
+        }
+
+        return filters;
     }
 }

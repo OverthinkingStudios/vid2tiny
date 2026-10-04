@@ -17,6 +17,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly MediaProbeService _mediaProbeService;
     private readonly FfmpegService _ffmpegService;
     private readonly LogService _logService;
+    private VideoMetadata? _metadata;
 
     [ObservableProperty]
     private bool isBusy;
@@ -46,6 +47,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         GalleryService galleryService,
         MediaProbeService mediaProbeService,
         FfmpegService ffmpegService,
+        SizeEstimator sizeEstimator,
         LogService logService)
     {
 
@@ -58,7 +60,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _logService = logService;
 
         Preview = new PreviewViewModel();
-        EncodeOptions = new EncodeOptionsViewModel();
+        EncodeOptions = new EncodeOptionsViewModel(sizeEstimator);
         SourceGallery = new SourceGalleryViewModel(galleryService, logService);
         OutputGallery = new OutputGalleryViewModel(galleryService, logService);
         Log = new LogViewModel(logService);
@@ -68,6 +70,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         Preview.NextClipStarted += () => OutputFileName = FreeOutputFileName(OutputFileName, nextNumber: true);
         Preview.PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName is not (nameof(PreviewViewModel.PositionSeconds) or nameof(PreviewViewModel.IsPlaying)))
+            {
+                EncodeOptions.SetClip(CurrentClip());
+            }
+
             if (args.PropertyName == nameof(PreviewViewModel.HasVideo))
             {
                 ConvertCommand.NotifyCanExecuteChanged();
@@ -89,13 +96,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OutputGallery.OutputFolder = OutputFolder;
         await OutputGallery.RefreshCommand.ExecuteAsync(null);
 
-        var preset = EncodeOptions.Presets.FirstOrDefault(x => x.Id == _settings.LastPresetId);
-        EncodeOptions.SelectedPreset = preset ?? EncodeOptions.Presets.FirstOrDefault();
-        EncodeOptions.MuteAudio = _settings.LastMuteAudio;
-        EncodeOptions.Crf = _settings.LastCrf;
-        EncodeOptions.EncoderPreset = _settings.LastEncoderPreset;
-        EncodeOptions.ScaleWidth = _settings.LastScaleWidth;
-        EncodeOptions.ScaleHeight = _settings.LastScaleHeight;
+        EncodeOptions.Load(_settings.Encoding);
 
         _logService.Add(LogCategory.Info, $"{AppInfo.Name} started.");
 
@@ -118,6 +119,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             var path = filePath;
             var metadata = await _mediaProbeService.ProbeAsync(path);
+            _metadata = metadata;
             var duration = metadata?.Duration ?? TimeSpan.Zero;
             var width = metadata?.Width ?? 0;
             var height = metadata?.Height ?? 0;
@@ -135,12 +137,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanConvert))]
     public async Task ConvertAsync()
     {
-        if (!Preview.HasVideo)
-        {
-            return;
-        }
-
-        if (Preview.EndSeconds <= Preview.StartSeconds)
+        if (CurrentClip() is not { Seconds: > 0 } clip || EncodeOptions.Plan is not { } plan)
         {
             _logService.Add(LogCategory.Warning, "End time must be greater than start time.");
             return;
@@ -153,21 +150,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ConvertCommand.NotifyCanExecuteChanged();
 
         var outputPath = Path.Combine(OutputFolder, SanitizeOutputFileName(OutputFileName));
-        var parameters = BuildJobParameters(outputPath);
-
-        _logService.Add(LogCategory.Process, $"ffmpeg args: {_ffmpegService.BuildArguments(parameters)}");
 
         try
         {
-            var exitCode = await _ffmpegService.ExecuteAsync(
-                parameters,
-                onOutput: line => _logService.Add(LogCategory.Process, line),
-                onError: line => _logService.Add(LogCategory.Process, line));
+            var exitCode = await EncodeAsync(new VideoJobParameters(clip, plan, outputPath));
+            if (exitCode == 0 && plan is { SizeLimitBytes: { } limit, VideoBitrate: { } bitrate } && new FileInfo(outputPath).Length is var size && size > limit)
+            {
+                _logService.Add(LogCategory.Warning, $"Output is {size:N0} bytes, over the {limit:N0} byte limit. Encoding again with a lower bitrate.");
+                var corrected = (long)(bitrate * (limit * 0.97 - plan.AudioBytes) / Math.Max(1, size - plan.AudioBytes));
+                exitCode = await EncodeAsync(new VideoJobParameters(clip, plan with { VideoBitrate = corrected }, outputPath));
+            }
 
             if (exitCode == 0)
             {
-                _logService.Add(LogCategory.Info, $"Saved output: {outputPath}");
-                ExportStatus = $"Saved {Path.GetFileName(outputPath)}";
+                var saved = new FileInfo(outputPath);
+                _logService.Add(LogCategory.Info, $"Saved output: {outputPath} ({saved.Length:N0} bytes)");
+                ExportStatus = string.Create(CultureInfo.InvariantCulture, $"Saved {saved.Name} ({saved.Length / 1_000_000d:0.0} MB)");
                 await OutputGallery.RefreshCommand.ExecuteAsync(null);
             }
             else
@@ -271,48 +269,47 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _settings.HiddenTags = SourceGallery.HiddenTags.ToList();
         _settings.TagColors = SourceGallery.TagColors;
         _settings.OutputFolder = OutputFolder;
-        _settings.LastPresetId = EncodeOptions.SelectedPreset?.Id ?? "balanced";
-        _settings.LastMuteAudio = EncodeOptions.MuteAudio;
-        _settings.LastCrf = EncodeOptions.Crf;
-        _settings.LastEncoderPreset = EncodeOptions.EncoderPreset;
-        _settings.LastScaleWidth = EncodeOptions.ScaleWidth;
-        _settings.LastScaleHeight = EncodeOptions.ScaleHeight;
+        _settings.Encoding = EncodeOptions.ToSettings();
     }
 
     private bool CanConvert() => !IsBusy && Preview.HasVideo;
 
-    private VideoJobParameters BuildJobParameters(string outputPath)
+    private Task<int> EncodeAsync(VideoJobParameters job) =>
+        _ffmpegService.EncodeAsync(
+            job,
+            onLog: line => _logService.Add(LogCategory.Process, line),
+            onPass: (pass, passes) => ExportStatus = passes > 1 ? $"Converting, pass {pass} of {passes}…" : "Converting…");
+
+    private Clip? CurrentClip()
     {
-        CropRect? crop = null;
-        if (Preview.SourcePixelWidth > 0 &&
-            Preview.SourcePixelHeight > 0 &&
-            (Preview.CropXNormalized > 0 ||
-             Preview.CropYNormalized > 0 ||
-             Preview.CropWidthNormalized < 0.999 ||
-             Preview.CropHeightNormalized < 0.999))
+        if (!Preview.HasVideo || _metadata is null || Preview.SourcePixelWidth <= 0 || Preview.SourcePixelHeight <= 0)
         {
-            crop = new CropRect
-            {
-                X = Preview.CropXNormalized * Preview.SourcePixelWidth,
-                Y = Preview.CropYNormalized * Preview.SourcePixelHeight,
-                Width = Preview.CropWidthNormalized * Preview.SourcePixelWidth,
-                Height = Preview.CropHeightNormalized * Preview.SourcePixelHeight
-            };
+            return null;
         }
 
-        return new VideoJobParameters
-        {
-            InputPath = Preview.LoadedFilePath,
-            OutputPath = outputPath,
-            StartTime = TimeSpan.FromSeconds(Preview.StartSeconds),
-            EndTime = TimeSpan.FromSeconds(Preview.EndSeconds),
-            Crop = crop,
-            ScaleWidth = EncodeOptions.ScaleWidth,
-            ScaleHeight = EncodeOptions.ScaleHeight,
-            MuteAudio = EncodeOptions.MuteAudio,
-            Crf = EncodeOptions.Crf,
-            EncoderPreset = EncodeOptions.EncoderPreset
-        };
+        var isCropped = Preview.CropXNormalized > 0 ||
+                        Preview.CropYNormalized > 0 ||
+                        Preview.CropWidthNormalized < 0.999 ||
+                        Preview.CropHeightNormalized < 0.999;
+        var crop = isCropped
+            ? new CropRect(
+                Preview.CropXNormalized * Preview.SourcePixelWidth,
+                Preview.CropYNormalized * Preview.SourcePixelHeight,
+                Preview.CropWidthNormalized * Preview.SourcePixelWidth,
+                Preview.CropHeightNormalized * Preview.SourcePixelHeight)
+            : null;
+
+        return new Clip(
+            Preview.LoadedFilePath,
+            TimeSpan.FromSeconds(Preview.StartSeconds),
+            TimeSpan.FromSeconds(Preview.EndSeconds),
+            crop,
+            Preview.SourcePixelWidth,
+            Preview.SourcePixelHeight,
+            _metadata.FrameRate > 0 ? _metadata.FrameRate : 30,
+            _metadata.HasAudio,
+            _metadata.VideoBitrate,
+            _metadata.AudioBitrate);
     }
 
     private string FreeOutputFileName(string fileName, bool nextNumber)
